@@ -15,7 +15,17 @@ export const AuthProvider = ({ children }) => {
   const [syncError, setSyncError] = useState(null);
 
   useEffect(() => {
+    // Safety timeout: if Firebase hangs (usually due to missing env vars), 
+    // force loading to false so the UI can render the error state or landing page.
+    const safetyTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn('Firebase Auth is taking too long. Check if VITE_FIREBASE_API_KEY is set in Vercel.');
+        setLoading(false);
+      }
+    }, 4000);
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      clearTimeout(safetyTimeout);
       setCurrentUser(firebaseUser);
 
       if (firebaseUser) {
