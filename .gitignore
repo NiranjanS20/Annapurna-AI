@@ -1,0 +1,59 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+*.whl
+
+# --- Virtual Environments ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# --- Environment ---
+.env
+.env.local
+.env.production
+!.env.example
+
+# --- Firebase ---
+firebase_service_account.json
+**/firebase_service_account.json
+
+# --- ML Models ---
+*.pkl
+*.joblib
+
+# --- Database ---
+instance/
+*.db
+*.sqlite3
+
+# --- Node.js ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp
+.pnp.js
+
+# --- Build ---
+dist/
+build/
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+Desktop.ini
