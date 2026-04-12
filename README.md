@@ -51,7 +51,7 @@ Cut waste. Predict smarter. Feed more.
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| **Frontend** | React 18, Vite, Tailwind CSS | Glassmorphism + Neobrutalism UI |
+| **Frontend** | React 18, Vite, Tailwind CSS | Data UI (Analytical) + Neobrutalism UI |
 | **Backend** | Python, Flask, SQLAlchemy | REST API, auth middleware |
 | **Database** | PostgreSQL / SQLite | Persistent food log storage |
 | **Auth** | Firebase Auth | Secure user identity |
