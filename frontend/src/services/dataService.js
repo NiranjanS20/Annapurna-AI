@@ -1,0 +1,162 @@
+import api from './api';
+
+const unwrap = (response) => {
+  const body = response.data;
+  if (body && body.success !== undefined && body.data !== undefined) {
+    return body.data;
+  }
+  return body;
+};
+
+// ── Dashboard ────────────────────────────────────────────────────────
+
+export const getDashboardData = async () => {
+  try {
+    const response = await api.get('/api/analytics');
+    return unwrap(response);
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    return { isEmpty: true };
+  }
+};
+
+// ── Data Entry ───────────────────────────────────────────────────────
+
+export const postDataEntry = async (data) => {
+  try {
+    const response = await api.post('/api/data', data);
+    const body = response.data;
+    return {
+      success: body.success ?? true,
+      message: body.message || body.error || 'Data logged successfully.',
+      data: body.data || null,
+    };
+  } catch (error) {
+    console.error('Error posting data entry:', error);
+    // api.js interceptor wraps the backend error into error.message
+    const errMsg = error.message || 'Failed to log data. Please try again.';
+    return { success: false, message: errMsg, data: null };
+  }
+};
+
+export const uploadBillingCsv = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Axios explicitly overrides the instance 'application/json' default when this is provided
+    // and naturally computes the correct form boundary.
+    const response = await api.post('/api/data/upload-csv', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    const body = response.data;
+    
+    return {
+      success: body.success ?? true,
+      message: body.message || 'CSV uploaded successfully.',
+      data: body.data || null,
+    };
+  } catch (error) {
+    console.error('Error uploading CSV:', error);
+    const errMsg = error.response?.data?.error || error.message || 'Failed to upload CSV.';
+    return { success: false, message: errMsg, data: null };
+  }
+};
+
+// ── Menu Items ───────────────────────────────────────────────────────
+
+export const getMenuItems = async () => {
+  try {
+    const response = await api.get('/api/data/menu-items');
+    // If it's a success response struct
+    const unwrapped = unwrap(response);
+    return { success: true, data: Array.isArray(unwrapped) ? unwrapped : [] };
+  } catch (error) {
+    console.error('Error fetching menu items:', error);
+    return { success: false, data: [] };
+  }
+};
+
+export const addMenuItem = async (name, category = 'Custom') => {
+  try {
+    const response = await api.post('/api/data/menu-items/add', { name, category });
+    const body = response.data;
+    return {
+      success: body.success ?? true,
+      message: body.message || body.error || 'Menu item created.',
+      data: body.data || null,
+    };
+  } catch (error) {
+    console.error('Error creating menu item:', error);
+    const errMsg = error.response?.data?.error || error.response?.data?.message || 'Failed to create menu item.';
+    return { success: false, message: errMsg, data: null };
+  }
+};
+
+// ── Alerts ───────────────────────────────────────────────────────────
+
+export const getAlerts = async () => {
+  try {
+    const response = await api.get('/api/alerts');
+    return unwrap(response) || [];
+  } catch (error) {
+    console.error('Error fetching alerts:', error);
+    return [];
+  }
+};
+
+// ── Donations ────────────────────────────────────────────────────────
+
+export const getDonations = async () => {
+  try {
+    const response = await api.get('/api/donations');
+    return unwrap(response) || [];
+  } catch (error) {
+    console.error('Error fetching donations:', error);
+    return [];
+  }
+};
+
+export const createDonation = async (data) => {
+  try {
+    const response = await api.post('/api/donations', data);
+    const body = response.data;
+    return {
+      success: body.success ?? true,
+      message: body.message || 'Donation created.',
+      data: body.data || null,
+    };
+  } catch (error) {
+    console.error('Error creating donation:', error);
+    return { success: false, message: 'Failed to create donation' };
+  }
+};
+
+export const markDonation = async (id) => {
+  try {
+    const response = await api.put(`/api/donations/${id}/mark`);
+    const body = response.data;
+    return {
+      success: body.success ?? true,
+      message: body.message || 'Donation marked.',
+      data: body.data || null,
+    };
+  } catch (error) {
+    console.error('Error marking donation:', error);
+    return { success: false, message: 'Failed to mark donation' };
+  }
+};
+
+// ── Analytics ────────────────────────────────────────────────────────
+
+export const getAnalyticsData = async () => {
+  try {
+    const response = await api.get('/api/analytics');
+    return unwrap(response);
+  } catch (error) {
+    console.error('Error fetching analytics:', error);
+    return { isEmpty: true };
+  }
+};
