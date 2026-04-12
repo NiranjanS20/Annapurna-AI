@@ -16,7 +16,7 @@ services:
           name: annapurna-db
           property: connectionString
 
-      - key: PYTHON_VERSION   # 🔥 FIX (CRITICAL)
+      - key: PYTHON_VERSION
         value: 3.11.9
 
       - key: PYTHONPATH
