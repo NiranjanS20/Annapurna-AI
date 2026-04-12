@@ -13,9 +13,14 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
+// Check if config exists to prevent blank screens on deployments without env vars
+if (!firebaseConfig.apiKey) {
+  console.error("🔥 Firebase Configuration is missing! Please check your environment variables in Vercel.");
+}
+
 // Initialize Firebase
 export const app = initializeApp(firebaseConfig);
-export const analytics = getAnalytics(app);
+export const analytics = firebaseConfig.measurementId ? getAnalytics(app) : null;
 
 // Initialize Messaging conditionally (only in browsers supporting it)
 export const getAppMessaging = async () => {
