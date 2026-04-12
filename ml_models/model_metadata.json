@@ -1,0 +1,15 @@
+{
+  "trained_at": "2026-04-08T02:33:26.605559",
+  "n_train_samples": 362360,
+  "n_test_samples": 90591,
+  "test_mae": 103.62883604844583,
+  "test_r2": 0.590790213117586,
+  "features": [
+    "day_of_week",
+    "is_weekend",
+    "lag_1_demand",
+    "lag_3_avg",
+    "meal_type"
+  ],
+  "model_type": "RandomForestRegressor"
+}
