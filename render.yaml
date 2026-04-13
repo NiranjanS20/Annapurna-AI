@@ -6,8 +6,6 @@ services:
 
     buildCommand: |
       pip install -r requirements.txt
-      python -m ml_models.training.train_model --mode csv
-
     startCommand: gunicorn --workers=4 --chdir backend run:app
 
     envVars:
