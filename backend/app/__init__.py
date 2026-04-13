@@ -38,10 +38,16 @@ def create_app(config_name=None):
     if database_url:
         if database_url.startswith('postgres://'):
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
+        if "sslmode" not in database_url:
+            database_url += "?sslmode=require"
+            
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_size": 2,
+        "max_overflow": 1,
+    }
     # ------------------------------------------------------------------
     # Logging
     # ------------------------------------------------------------------
