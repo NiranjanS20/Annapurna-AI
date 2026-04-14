@@ -1,84 +1,87 @@
-<svg width="560" height="280" viewBox="0 0 560 280" xmlns="http://www.w3.org/2000/svg" role="img">
+<svg width="560" height="260" viewBox="0 0 560 260" xmlns="http://www.w3.org/2000/svg" role="img">
   <title>Annapurna AI Logo</title>
-  <desc>A modern logo featuring a leaf-flame hybrid symbol with circuit-like details, representing the fusion of food and AI technology</desc>
+  <desc>Leaf-flame hybrid with circuit nodes — Annapurna AI food waste management platform</desc>
 
-  <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Syne:wght@800&family=Space+Mono:wght@400&display=swap');
-      .wordmark-main { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 52px; fill: #1D9E75; }
-      .wordmark-ai   { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 52px; fill: #0F6E56; }
-      .tagline       { font-family: 'Space Mono', monospace; font-size: 11px; fill: #888780; letter-spacing: 0.18em; }
-      .badge-text    { font-family: 'Space Mono', monospace; font-size: 10px; fill: #0F6E56; }
-    </style>
-  </defs>
-
-  <!-- ── Symbol: leaf / flame shell ── -->
+  <!-- ── Symbol: outer leaf/flame shell ── -->
   <path
-    d="M 90 210
-       C 90 210 35 180 38 130
-       C 41 90  60 65  90 45
-       C 120 65 139 90 142 130
-       C 145 180 90 210 90 210 Z"
-    fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.5" />
+    d="M 90 205
+       C 90 205 35 175 38 125
+       C 41 85  60 60  90 42
+       C 120 60 139 85 142 125
+       C 145 175 90 205 90 205 Z"
+    fill="#E1F5EE" stroke="#1D9E75" stroke-width="1.5"/>
 
   <!-- Inner flame -->
   <path
-    d="M 90 196
-       C 90 196 58 174 60 139
-       C 62 111 74 96  90 79
-       C 106 96 118 111 120 139
-       C 122 174 90 196 90 196 Z"
-    fill="#9FE1CB" stroke="#0F6E56" stroke-width="1" />
+    d="M 90 190
+       C 90 190 58 168 60 133
+       C 62 105 74 90  90 74
+       C 106 90 118 105 120 133
+       C 122 168 90 190 90 190 Z"
+    fill="#9FE1CB" stroke="#0F6E56" stroke-width="1"/>
 
   <!-- Hotspot core -->
   <path
-    d="M 90 182
-       C 90 182 72 164 74 142
-       C 76 126 83 117 90 107
-       C 97 117 104 126 106 142
-       C 108 164 90 182 90 182 Z"
-    fill="#1D9E75" />
+    d="M 90 175
+       C 90 175 72 157 74 136
+       C 76 120 83 111 90 102
+       C 97 111 104 120 106 136
+       C 108 157 90 175 90 175 Z"
+    fill="#1D9E75"/>
 
   <!-- ── Circuit branches ── -->
-  <!-- Left -->
-  <line x1="68" y1="150" x2="50" y2="140" stroke="#0F6E56" stroke-width="1" />
-  <circle cx="47" cy="138" r="3.5" fill="#0F6E56" />
-  <line x1="50" y1="140" x2="38" y2="153" stroke="#0F6E56" stroke-width="1" />
-  <circle cx="36" cy="155" r="2.5" fill="#5DCAA5" />
+  <line x1="68" y1="144" x2="50" y2="134" stroke="#0F6E56" stroke-width="1"/>
+  <circle cx="47" cy="132" r="3.5" fill="#0F6E56"/>
+  <line x1="50" y1="134" x2="38" y2="147" stroke="#0F6E56" stroke-width="1"/>
+  <circle cx="36" cy="149" r="2.5" fill="#5DCAA5"/>
 
-  <!-- Right -->
-  <line x1="112" y1="150" x2="130" y2="140" stroke="#0F6E56" stroke-width="1" />
-  <circle cx="133" cy="138" r="3.5" fill="#0F6E56" />
-  <line x1="130" y1="140" x2="142" y2="153" stroke="#0F6E56" stroke-width="1" />
-  <circle cx="144" cy="155" r="2.5" fill="#5DCAA5" />
+  <line x1="112" y1="144" x2="130" y2="134" stroke="#0F6E56" stroke-width="1"/>
+  <circle cx="133" cy="132" r="3.5" fill="#0F6E56"/>
+  <line x1="130" y1="134" x2="142" y2="147" stroke="#0F6E56" stroke-width="1"/>
+  <circle cx="144" cy="149" r="2.5" fill="#5DCAA5"/>
 
-  <!-- Top -->
-  <line x1="90" y1="105" x2="90" y2="90" stroke="#0F6E56" stroke-width="1" />
-  <circle cx="90" cy="87" r="3" fill="#0F6E56" />
+  <line x1="90" y1="100" x2="90" y2="85" stroke="#0F6E56" stroke-width="1"/>
+  <circle cx="90" cy="82" r="3" fill="#0F6E56"/>
 
   <!-- Accent dots -->
-  <circle cx="75" cy="177" r="2"   fill="#9FE1CB" />
-  <circle cx="105" cy="177" r="2"  fill="#9FE1CB" />
-  <circle cx="65" cy="122" r="1.5" fill="#5DCAA5" opacity="0.7" />
-  <circle cx="115" cy="122" r="1.5" fill="#5DCAA5" opacity="0.7" />
+  <circle cx="75"  cy="171" r="2"   fill="#9FE1CB"/>
+  <circle cx="105" cy="171" r="2"   fill="#9FE1CB"/>
+  <circle cx="65"  cy="116" r="1.5" fill="#5DCAA5" opacity="0.7"/>
+  <circle cx="115" cy="116" r="1.5" fill="#5DCAA5" opacity="0.7"/>
 
-  <!-- ── Wordmark ── -->
-  <text x="170" y="138" class="wordmark-main">Annapurna</text>
-  <text x="171" y="183" class="wordmark-ai">AI</text>
+  <!-- ── Wordmark — system font stack, no external import ── -->
+  <text
+    x="170" y="130"
+    font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+    font-weight="800"
+    font-size="52"
+    fill="#1D9E75">Annapurna</text>
+
+  <text
+    x="171" y="175"
+    font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+    font-weight="800"
+    font-size="52"
+    fill="#0F6E56">AI</text>
 
   <!-- Tagline -->
-  <text x="172" y="207" class="tagline">FOOD WASTE  ·  FORECASTING  ·  ML</text>
+  <text
+    x="172" y="200"
+    font-family="'Courier New', Courier, monospace"
+    font-size="11"
+    fill="#888780"
+    letter-spacing="3">FOOD WASTE · FORECASTING · ML</text>
 
   <!-- Accent rule -->
-  <line x1="172" y1="217" x2="500" y2="217" stroke="#9FE1CB" stroke-width="0.5" />
+  <line x1="172" y1="210" x2="500" y2="210" stroke="#9FE1CB" stroke-width="0.5"/>
 
   <!-- Badges -->
-  <rect x="172" y="227" width="58"  height="18" rx="4" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="0.5" />
-  <text x="201" y="240" text-anchor="middle" class="badge-text">v1.0.0</text>
+  <rect x="172" y="220" width="58" height="17" rx="4" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="0.5"/>
+  <text x="201" y="232" text-anchor="middle" font-family="'Courier New', Courier, monospace" font-size="10" fill="#0F6E56">v1.0.0</text>
 
-  <rect x="238" y="227" width="86"  height="18" rx="4" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="0.5" />
-  <text x="281" y="240" text-anchor="middle" class="badge-text">MIT License</text>
+  <rect x="238" y="220" width="84" height="17" rx="4" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="0.5"/>
+  <text x="280" y="232" text-anchor="middle" font-family="'Courier New', Courier, monospace" font-size="10" fill="#0F6E56">MIT License</text>
 
-  <rect x="332" y="227" width="94"  height="18" rx="4" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="0.5" />
-  <text x="379" y="240" text-anchor="middle" class="badge-text">Python 3.10+</text>
+  <rect x="330" y="220" width="96" height="17" rx="4" fill="#E1F5EE" stroke="#9FE1CB" stroke-width="0.5"/>
+  <text x="378" y="232" text-anchor="middle" font-family="'Courier New', Courier, monospace" font-size="10" fill="#0F6E56">Python 3.10+</text>
 </svg>
