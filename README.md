@@ -210,7 +210,7 @@ VITE_FIREBASE_PROJECT_ID=...
 
 ## `$ git push origin production`
 
-### Backend → Railway / Heroku
+### Backend → Render
 
 ```bash
 # 1. Provision PostgreSQL — DATABASE_URL injected automatically
@@ -232,7 +232,7 @@ FIREBASE_CREDENTIALS_JSON='{"type":"service_account","project_id":"..."}'
 # Output dir      : dist
 
 # Required env vars in Vercel dashboard:
-VITE_API_BASE_URL=https://your-backend.up.railway.app
+VITE_API_BASE_URL=https://your-backend.up.render.com
 VITE_FIREBASE_API_KEY=...
 VITE_FIREBASE_AUTH_DOMAIN=...
 VITE_FIREBASE_PROJECT_ID=...
@@ -299,10 +299,10 @@ backend:
   language:   Python 3.10+
   framework:  Flask
   orm:        SQLAlchemy
-  server:     Gunicorn (4 workers)
+  server:     Gunicorn (1 workers)
 
 database:
-  production: PostgreSQL 16
+  production: PostgreSQL 18
   local:      SQLite
 
 auth:         Firebase Authentication
@@ -314,7 +314,7 @@ ml:
 
 deployment:
   frontend:   Vercel
-  backend:    Railway  /  Heroku
+  backend:    Render
 ```
 
 <br/>
