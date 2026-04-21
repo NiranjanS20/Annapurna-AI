@@ -123,7 +123,7 @@ def get_or_create_user(firebase_uid, email=None, full_name=None,
         )
     else:
         stmt = stmt.on_conflict_do_nothing(
-            index_elements=['firebase_uid']
+            index_elements=['email']
         )
 
     try:
