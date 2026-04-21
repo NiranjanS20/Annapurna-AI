@@ -118,7 +118,7 @@ def get_or_create_user(firebase_uid, email=None, full_name=None,
 
     if update_dict:
         stmt = stmt.on_conflict_do_update(
-            index_elements=['firebase_uid'],
+            index_elements=['email'],
             set_=update_dict
         )
     else:
