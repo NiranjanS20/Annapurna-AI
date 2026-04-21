@@ -104,7 +104,10 @@ def get_or_create_user(firebase_uid, email=None, full_name=None,
         role='admin'
     )
 
-    update_dict = {}
+    update_dict = {
+        "firebase_uid": firebase_uid,
+        "email": email
+    }
     if email:
         update_dict['email'] = db.func.coalesce(stmt.excluded.email, User.email)
     if full_name:
