@@ -1,15 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { requestNotificationPermission, onForegroundMessage } from '../services/notificationService';
-
-// Dummy alerts specified in requirements
-const INITIAL_ALERTS = [
-  { id: '1', title: '⚠️ Food expiring soon', body: 'Check inventory for tomatoes.', read: false, createdAt: new Date().toISOString() },
-  { id: '2', title: '📦 Excess food detected', body: '50kg surplus found in pantry.', read: true, createdAt: new Date().toISOString() },
-  { id: '3', title: '🤝 Donation request nearby', body: 'Local shelter is looking for grains.', read: false, createdAt: new Date().toISOString() }
-];
+import { connectNotificationStream, getNgoNotifications, markNgoNotificationRead } from '../services/donationService';
+import { useAuth } from '../context/AuthContext';
 
 export const useNotifications = () => {
-  const [notifications, setNotifications] = useState(INITIAL_ALERTS);
+  const { currentUser, backendUser } = useAuth();
+  const [notifications, setNotifications] = useState([]);
   const [fcmToken, setFcmToken] = useState(null);
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [latestToast, setLatestToast] = useState(null);
@@ -18,7 +14,7 @@ export const useNotifications = () => {
     let unmountHandler = () => {};
 
     const setupPush = async () => {
-      if (Notification.permission === 'granted') {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         setPermissionGranted(true);
         const token = await requestNotificationPermission();
         if (token) setFcmToken(token);
@@ -50,6 +46,69 @@ export const useNotifications = () => {
     return () => unmountHandler && unmountHandler();
   }, []);
 
+  useEffect(() => {
+    let source = null;
+    let isMounted = true;
+
+    const hydrateNgoNotifications = async () => {
+      if (backendUser?.role !== 'ngo') return;
+      try {
+        const list = await getNgoNotifications();
+        if (!isMounted) return;
+        setNotifications(
+          list.map((n) => ({
+            id: n.id,
+            title: 'New Donation Available',
+            body: `Donation ${n.donation_id} is available nearby.`,
+            read: n.read_status,
+            createdAt: n.notified_at,
+          }))
+        );
+      } catch (err) {
+        console.warn('Failed to load NGO notifications', err);
+      }
+    };
+
+    const connectStream = async () => {
+      if (!currentUser || !backendUser) return;
+      try {
+        const token = await currentUser.getIdToken(true);
+        source = connectNotificationStream(token, (data) => {
+          if (!isMounted) return;
+          const entry = {
+            id: `${Date.now()}-${data.donation_id || 'evt'}`,
+            title: data.type === 'donation_accepted'
+              ? 'Donation Accepted'
+              : data.type === 'donation_available'
+              ? 'New Donation Nearby'
+              : data.type === 'pickup_scheduled'
+              ? 'Pickup Scheduled'
+              : 'Donation Update',
+            body: data.donation_id
+              ? `Donation ${data.donation_id} updated.`
+              : 'A donation update was received.',
+            read: false,
+            createdAt: new Date().toISOString(),
+          };
+
+          setNotifications((prev) => [entry, ...prev]);
+          setLatestToast(entry);
+          setTimeout(() => setLatestToast(null), 5000);
+        });
+      } catch (err) {
+        console.warn('Failed to connect SSE stream', err);
+      }
+    };
+
+    hydrateNgoNotifications();
+    connectStream();
+
+    return () => {
+      isMounted = false;
+      if (source) source.close();
+    };
+  }, [currentUser, backendUser?.role]);
+
   const enableNotifications = useCallback(async () => {
     const token = await requestNotificationPermission();
     if (token) {
@@ -62,7 +121,10 @@ export const useNotifications = () => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
-  }, []);
+    if (backendUser?.role === 'ngo' && /^\d+$/.test(String(id))) {
+      markNgoNotificationRead(id).catch(() => {});
+    }
+  }, [backendUser?.role]);
 
   const markAllAsRead = useCallback(() => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
