@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   loginWithEmail,
   registerWithEmail,
@@ -184,6 +184,16 @@ const Auth = () => {
             >
               {isLogin ? 'Sign Up' : 'Login'}
             </button>
+
+            <div className="mt-6">
+              <p className="font-sans font-medium text-black mb-2">Joining as an NGO partner?</p>
+              <Link
+                to={ROUTES.NGO_ONBOARDING}
+                className="inline-block font-heading font-bold text-lg uppercase border-4 border-black bg-[#FDE68A] px-6 py-3 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:-translate-y-1 hover:-translate-x-1 hover:shadow-[6px_6px_0px_rgba(0,0,0,1)] transition-all active:translate-y-1 active:translate-x-1 active:shadow-none text-black"
+              >
+                Register as NGO Partner
+              </Link>
+            </div>
           </div>
 
         </div>
