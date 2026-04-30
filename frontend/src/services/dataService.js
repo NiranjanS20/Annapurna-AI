@@ -44,13 +44,21 @@ export const uploadBillingCsv = async (file) => {
     const formData = new FormData();
     formData.append('file', file);
     
-    const response = await api.post('/api/data/upload-csv', formData);
+    // CRITICAL: Let axios auto-detect FormData and set multipart boundary
+    // The api.js interceptor handles Content-Type deletion for FormData
+    const response = await api.post('/api/data/upload-csv', formData, {
+      _customTimeout: true,
+      timeout: 120000, // 120s for CSV uploads
+    });
     const body = response.data;
     
     return {
       success: body.success ?? true,
       message: body.message || 'CSV uploaded successfully.',
       data: body.data || null,
+      rows_inserted: body.rows_inserted || 0,
+      skipped_duplicates: body.skipped_duplicates || 0,
+      skipped_invalid: body.skipped_invalid || 0,
     };
   } catch (error) {
     console.error('Error uploading CSV:', error);
