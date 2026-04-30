@@ -3,8 +3,8 @@
 -- ============================================================
 
 INSERT INTO users (firebase_uid, role) VALUES
-('test_admin_uid_123', 'admin'),
-('test_chef_uid_456', 'chef')
+('test_canteen_uid_123', 'canteen'),
+('test_ngo_uid_456', 'ngo')
 ON CONFLICT DO NOTHING;
 
 INSERT INTO menu_items (item_name, category) VALUES
