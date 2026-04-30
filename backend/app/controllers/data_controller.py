@@ -165,4 +165,3 @@ def check_alerts_and_donations(item_name, log_date, prep_qty, sold_qty, waste_qt
         logger.error(f"Error checking alerts/donations: {e}")
         # Note: Do NOT rollback here because execute_transaction already did!
         # Just log strictly.
-
