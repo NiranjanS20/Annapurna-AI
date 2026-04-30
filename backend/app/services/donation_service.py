@@ -21,6 +21,15 @@ def parse_datetime(value):
         return None
 
 
+def validate_lat_lng(lat, lng):
+    if lat is None or lng is None:
+        return
+    if lat < -90 or lat > 90:
+        raise ValueError('lat must be between -90 and 90')
+    if lng < -180 or lng > 180:
+        raise ValueError('lng must be between -180 and 180')
+
+
 def build_listing_payload(data, current_user, status_override=None):
     item_name = (data.get('item_name') or '').strip()
     if not item_name:
@@ -43,12 +52,22 @@ def build_listing_payload(data, current_user, status_override=None):
         lat = float(lat)
     if lng is not None:
         lng = float(lng)
+    validate_lat_lng(lat, lng)
     address = (data.get('address') or '').strip() or None
 
     expires_at = parse_datetime(data.get('expires_at'))
+    if not expires_at and pickup_end:
+        expires_at = pickup_end
     if not expires_at:
         hours = float(current_app.config.get('DONATION_LISTING_EXPIRY_HOURS', 6))
         expires_at = datetime.now(timezone.utc) + timedelta(hours=hours)
+
+    notes = (data.get('notes') or '').strip() or None
+    source_food_data_id = data.get('source_food_data_id')
+    if source_food_data_id not in [None, '']:
+        source_food_data_id = int(source_food_data_id)
+    else:
+        source_food_data_id = None
 
     status = status_override or data.get('status') or 'available'
 
@@ -65,6 +84,8 @@ def build_listing_payload(data, current_user, status_override=None):
         lat=lat,
         lng=lng,
         address=address,
+        notes=notes,
+        source_food_data_id=source_food_data_id,
         expires_at=expires_at,
         status=status,
     )
@@ -86,7 +107,15 @@ def ensure_finalizable_fields(data):
     if pickup_start >= pickup_end:
         raise ValueError('pickup_end must be after pickup_start')
 
-#meta data configuration
+    lat = data.get('lat')
+    lng = data.get('lng')
+    if lat is not None:
+        lat = float(lat)
+    if lng is not None:
+        lng = float(lng)
+    validate_lat_lng(lat, lng)
+
+
 def transition_listing(listing, next_status, actor_user_id=None, metadata=None):
     current_status = listing.status
     validate_transition(current_status, next_status)
