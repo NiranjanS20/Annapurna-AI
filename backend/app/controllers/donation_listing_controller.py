@@ -2,8 +2,11 @@ from datetime import datetime, timezone
 from flask import g, current_app
 
 from app import db
+from sqlalchemy import or_
 from app.models.donation_listing import DonationListing
 from app.models.donation_acceptance import DonationAcceptance
+from app.models.menu_item import MenuItem
+from app.controllers.prediction_controller import get_unit_for_item
 from app.services.donation_service import (
     build_listing_payload,
     ensure_finalizable_fields,
@@ -76,6 +79,48 @@ def create_listing(data):
     return listing.to_dict()
 
 
+def convert_donation_to_listing(donation, data):
+    ensure_finalizable_fields(data)
+
+    item_name = donation.item_name
+    category = (data.get('category') or '').strip()
+    if not category:
+        menu_item = MenuItem.query.filter(
+            MenuItem.item_name == item_name,
+            or_(MenuItem.user_id == None, MenuItem.user_id == g.current_user.id)
+        ).first()
+        category = menu_item.category if menu_item else None
+
+    unit = (data.get('unit') or '').strip() or get_unit_for_item(item_name)
+
+    listing_data = {
+        'item_name': item_name,
+        'category': category,
+        'quantity': float(donation.quantity),
+        'unit': unit,
+        'pickup_start': data.get('pickup_start'),
+        'pickup_end': data.get('pickup_end'),
+        'lat': data.get('lat'),
+        'lng': data.get('lng'),
+        'address': data.get('address'),
+        'notes': data.get('notes'),
+        'expires_at': data.get('expires_at'),
+        'waste_context': 'surplus',
+        'status': 'available',
+    }
+
+    listing = build_listing_payload(listing_data, g.current_user, status_override='available')
+    db.session.add(listing)
+    donation.status = 'picked'
+    db.session.add(donation)
+
+    log_audit_event(listing.id, 'created', actor_user_id=g.current_user.id, to_status=listing.status)
+    notifications = _notify_nearby_ngos(listing)
+
+    commit_changes(listing, donation, *notifications)
+    return listing.to_dict()
+
+
 def finalize_listing(listing, data):
     if listing.status != 'draft':
         raise ValueError('Only draft listings can be finalized')
@@ -87,6 +132,10 @@ def finalize_listing(listing, data):
     listing.lat = listing.lat or (float(data.get('lat')) if data.get('lat') is not None else None)
     listing.lng = listing.lng or (float(data.get('lng')) if data.get('lng') is not None else None)
     listing.address = listing.address or data.get('address')
+    if data.get('notes'):
+        listing.notes = data.get('notes')
+    if data.get('expires_at'):
+        listing.expires_at = parse_datetime(data.get('expires_at'))
 
     transition_listing(listing, 'available', actor_user_id=g.current_user.id)
 
