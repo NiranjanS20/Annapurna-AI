@@ -9,6 +9,8 @@ from app import db
 from flask import g
 from app.models.food_data import FoodData
 from app.models.donation import Donation
+from app.models.donation_listing import DonationListing
+from app.models.donation_acceptance import DonationAcceptance
 
 logger = logging.getLogger(__name__)
 
@@ -78,10 +80,18 @@ def get_dashboard_data():
         donations = Donation.query.filter_by(user_id=g.current_user.id).all()
         total_donated = sum([float(d.quantity) for d in donations])
         donation_count = len(donations)
+
+        listings = DonationListing.query.filter_by(user_id=g.current_user.id).all()
+        listing_count = len(listings)
+        accepted_count = DonationAcceptance.query.filter(DonationAcceptance.donation_id.in_([l.id for l in listings])).count() if listings else 0
+        completed_count = len([l for l in listings if l.status == 'completed'])
     except Exception as e:
         logger.error("Error fetching donation stats: %s", e)
         total_donated = 0
         donation_count = 0
+        listing_count = 0
+        accepted_count = 0
+        completed_count = 0
 
     result = {
         "isEmpty": False,
@@ -99,7 +109,10 @@ def get_dashboard_data():
         "wasteByItem": waste_by_item,
         "donationStats": {
             "totalDonated": round(total_donated, 2),
-            "donationCount": donation_count
+            "donationCount": donation_count,
+            "listingCount": listing_count,
+            "acceptedCount": accepted_count,
+            "completedCount": completed_count,
         }
     }
 
