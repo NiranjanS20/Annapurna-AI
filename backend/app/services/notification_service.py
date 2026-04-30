@@ -56,7 +56,7 @@ def log_audit_event(donation_id, event_type, actor_user_id=None, from_status=Non
         actor_user_id=actor_user_id,
         from_status=from_status,
         to_status=to_status,
-        metadata=metadata,
+        event_metadata=metadata,
     )
     db.session.add(log)
     return log
