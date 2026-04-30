@@ -22,19 +22,17 @@ def firebase_auth_required(f):
     def decorated_function(*args, **kwargs):
         auth_header = request.headers.get('Authorization', '')
 
-        if not auth_header.startswith('Bearer '):
-            return jsonify({
-                'success': False,
-                'error': 'Missing or malformed Authorization header. Expected: Bearer <token>',
-                'data': None
-            }), 401
+        id_token = None
+        if auth_header.startswith('Bearer '):
+            id_token = auth_header.split('Bearer ')[1].strip()
 
-        id_token = auth_header.split('Bearer ')[1].strip()
+        if not id_token and request.path.startswith('/api/stream'):
+            id_token = request.args.get('token', '').strip()
 
         if not id_token:
             return jsonify({
                 'success': False,
-                'error': 'Empty authentication token.',
+                'error': 'Missing or malformed Authorization header. Expected: Bearer <token>',
                 'data': None
             }), 401
 
@@ -81,3 +79,34 @@ def firebase_auth_required(f):
         return f(*args, **kwargs)
 
     return decorated_function
+
+
+def role_required(*roles):
+    """
+    Decorator enforcing role-based access control.
+    Usage: @role_required('canteen', 'admin')
+    """
+    allowed_roles = [r.lower() for r in roles]
+
+    def decorator(f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            current = getattr(g, 'current_user', None)
+            if not current:
+                return jsonify({
+                    'success': False,
+                    'error': 'Unauthorized: user not found in request context.',
+                    'data': None
+                }), 403
+
+            user_role = (current.role or 'canteen').lower()
+            if user_role not in allowed_roles:
+                return jsonify({
+                    'success': False,
+                    'error': 'Forbidden: insufficient role permissions.',
+                    'data': None
+                }), 403
+
+            return f(*args, **kwargs)
+        return wrapped
+    return decorator
