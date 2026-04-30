@@ -15,7 +15,7 @@ export const auth = getAuth(app);
 
 const googleProvider = new GoogleAuthProvider();
 
-// ── Core Firebase auth ────────────────────────────────────────────────
+// ── Core Firebase auth ──────────────────────────────────────────
 
 export const loginWithEmail = (email, password) => {
   return signInWithEmailAndPassword(auth, email, password);
@@ -43,7 +43,7 @@ export const deleteCurrentUser = async () => {
   }
 };
 
-// ── Backend sync helpers ──────────────────────────────────────────────
+// ── Backend sync helpers ──────────────────────────────────────────
 
 /**
  * POST /api/auth/sync-user
