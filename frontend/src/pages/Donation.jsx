@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, PackageCheck, MapPin, PlusCircle, Loader2 } from 'lucide-react';
-import { getDonations, markDonation } from '../services/dataService';
+import { getDonations, convertDonationToListing, getMenuItems } from '../services/dataService';
 import { createDonationListing, getDonationListings, finalizeDonationListing, schedulePickup, completeDonation } from '../services/donationService';
+import { useAuth } from '../context/AuthContext';
+import { presetMenuItems } from '../constants/presetMenuItems';
+import { NOMINATIM_BASE_URL } from '../utils/mapConfig';
 import MapView from '../components/MapView';
 
 const Donation = () => {
+  const { backendUser } = useAuth();
   const [surplus, setSurplus] = useState([]);
   const [listings, setListings] = useState([]);
+  const [menuItems, setMenuItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [geoStatus, setGeoStatus] = useState('');
   const [pickupEta, setPickupEta] = useState({});
   const [form, setForm] = useState({
     item_name: '',
@@ -19,36 +25,211 @@ const Donation = () => {
     pickup_start: '',
     pickup_end: '',
     address: '',
+    expires_at: '',
+    notes: '',
   });
-  const [location, setLocation] = useState({ lat: 28.6139, lng: 77.2090 });
+  const [location, setLocation] = useState({ lat: 22.9734, lng: 78.6569 });
+
+  const COORDS_CACHE_KEY = 'annapurna.pickup.coords';
+  const ADDRESS_CACHE_KEY = 'annapurna.pickup.address';
+
+  const readCachedCoords = () => {
+    try {
+      const raw = localStorage.getItem(COORDS_CACHE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const persistCoords = (coords) => {
+    try {
+      localStorage.setItem(COORDS_CACHE_KEY, JSON.stringify(coords));
+    } catch {
+      // Ignore cache errors.
+    }
+  };
+
+  const readCachedAddress = () => {
+    try {
+      return localStorage.getItem(ADDRESS_CACHE_KEY) || '';
+    } catch {
+      return '';
+    }
+  };
+
+  const persistAddress = (address) => {
+    if (!address) return;
+    try {
+      localStorage.setItem(ADDRESS_CACHE_KEY, address);
+    } catch {
+      // Ignore cache errors.
+    }
+  };
+
+  const reverseGeocode = async (lat, lng) => {
+    try {
+      const response = await fetch(
+        `${NOMINATIM_BASE_URL}/reverse?format=json&lat=${lat}&lon=${lng}`
+      );
+      const data = await response.json();
+      return data?.display_name || '';
+    } catch {
+      return '';
+    }
+  };
+
+  const forwardGeocode = async (query) => {
+    if (!query) return null;
+    try {
+      const response = await fetch(
+        `${NOMINATIM_BASE_URL}/search?format=json&q=${encodeURIComponent(query)}&limit=1`
+      );
+      const data = await response.json();
+      if (!Array.isArray(data) || data.length === 0) return null;
+      return { lat: Number(data[0].lat), lng: Number(data[0].lon) };
+    } catch {
+      return null;
+    }
+  };
+
+  const getItemMeta = (name) => {
+    const normalized = (name || '').trim().toLowerCase();
+    if (!normalized) return { category: '', unit: 'units' };
+
+    const presetMatch = presetMenuItems.find(
+      (item) => item.name.trim().toLowerCase() === normalized
+    );
+    if (presetMatch) {
+      return { category: presetMatch.category || '', unit: presetMatch.unit || 'units' };
+    }
+
+    const customMatch = menuItems.find(
+      (item) => item.item_name?.trim().toLowerCase() === normalized
+    );
+    return { category: customMatch?.category || '', unit: 'units' };
+  };
 
   useEffect(() => {
     const fetchDonations = async () => {
-      const data = await getDonations();
-      const listingData = await getDonationListings().catch(() => []);
+      const [data, listingData, menuResponse] = await Promise.all([
+        getDonations(),
+        getDonationListings().catch(() => []),
+        getMenuItems(),
+      ]);
       console.log("Donations data received:", data);
       setSurplus(data);
       setListings(listingData);
+      setMenuItems(menuResponse.data || []);
       setLoading(false);
     };
     fetchDonations();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const cachedAddress = readCachedAddress();
+    if (cachedAddress) {
+      setForm((prev) => (prev.address ? prev : { ...prev, address: cachedAddress }));
+    }
+
+    const cachedCoords = readCachedCoords();
+    if (cachedCoords) {
+      setLocation(cachedCoords);
+    }
+
+    const applyLocation = async (coords, shouldReverseGeocode) => {
+      if (cancelled) return;
+      setLocation(coords);
+      persistCoords(coords);
+
+      if (shouldReverseGeocode) {
+        const resolvedAddress = await reverseGeocode(coords.lat, coords.lng);
+        if (resolvedAddress && !cancelled) {
+          setForm((prev) => (prev.address ? prev : { ...prev, address: resolvedAddress }));
+          persistAddress(resolvedAddress);
+        }
+      }
+    };
+
+    const fallbackFromProfile = async () => {
+      if (!backendUser?.location) return;
+      const coords = await forwardGeocode(backendUser.location);
+      if (coords) {
+        await applyLocation(coords, false);
+        setForm((prev) => (prev.address ? prev : { ...prev, address: backendUser.location }));
+        persistAddress(backendUser.location);
+      }
+    };
+
+    const handleGeoSuccess = async (position) => {
+      const coords = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      };
+      setGeoStatus('Using your current location.');
+      await applyLocation(coords, true);
+    };
+
+    const handleGeoError = async () => {
+      setGeoStatus('Using saved location. Update if needed.');
+      if (!cachedCoords) {
+        await fallbackFromProfile();
+      }
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(handleGeoSuccess, handleGeoError, {
+        enableHighAccuracy: true,
+        timeout: 8000,
+        maximumAge: 30000,
+      });
+    } else {
+      handleGeoError();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [backendUser]);
 
   const refreshListings = async () => {
     const listingData = await getDonationListings().catch(() => []);
     setListings(listingData);
   };
 
-  const handleMark = async (id) => {
-    // Optimistic UI update
-    setSurplus(surplus.map(s => s.id === id ? { ...s, status: 'picked' } : s));
-    
-    // Call backend
-    const result = await markDonation(id);
-    if (!result.success) {
-      // Revert on failure
-      setSurplus(surplus.map(s => s.id === id ? { ...s, status: 'available' } : s));
+  const handleMark = async (item) => {
+    if (saving) return;
+    setError('');
+
+    if (!form.pickup_start || !form.pickup_end || !form.address) {
+      setError('Pickup window and address are required to publish a listing.');
+      return;
     }
+
+    setSaving(true);
+    const meta = getItemMeta(item.item_name);
+    const payload = {
+      pickup_start: form.pickup_start,
+      pickup_end: form.pickup_end,
+      address: form.address,
+      lat: location.lat,
+      lng: location.lng,
+      category: meta.category || form.category,
+      unit: meta.unit || form.unit,
+      notes: form.notes,
+      expires_at: form.expires_at,
+    };
+
+    const result = await convertDonationToListing(item.id, payload);
+    if (!result.success) {
+      setError(result.message || 'Failed to publish listing.');
+    } else {
+      setSurplus((prev) => prev.map((s) => (s.id === item.id ? { ...s, status: 'picked' } : s)));
+      await refreshListings();
+    }
+    setSaving(false);
   };
 
   const formatTime = (isoString) => {
@@ -60,6 +241,13 @@ const Donation = () => {
     } catch { return ''; }
   };
 
+  const combinedItemNames = Array.from(
+    new Set([
+      ...presetMenuItems.map((item) => item.name),
+      ...menuItems.map((item) => item.item_name).filter(Boolean),
+    ])
+  );
+
   if (loading) {
     return <div className="p-8 text-gray-400 dark:text-gray-500 text-center">Loading donations...</div>;
   }
@@ -67,6 +255,17 @@ const Donation = () => {
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleItemChange = (e) => {
+    const value = e.target.value;
+    const meta = getItemMeta(value);
+    setForm((prev) => ({
+      ...prev,
+      item_name: value,
+      category: meta.category,
+      unit: meta.unit,
+    }));
   };
 
   const handleCreateListing = async (e) => {
@@ -80,6 +279,7 @@ const Donation = () => {
         quantity: Number(form.quantity),
         lat: location.lat,
         lng: location.lng,
+        status: 'available',
       });
       setForm({
         item_name: '',
@@ -89,6 +289,8 @@ const Donation = () => {
         pickup_start: '',
         pickup_end: '',
         address: '',
+        expires_at: '',
+        notes: '',
       });
       await refreshListings();
     } catch (err) {
@@ -108,6 +310,8 @@ const Donation = () => {
         lat: location.lat,
         lng: location.lng,
         address: form.address,
+        expires_at: form.expires_at,
+        notes: form.notes,
       });
       await refreshListings();
     } catch (err) {
@@ -135,6 +339,16 @@ const Donation = () => {
     }
   };
 
+  const handleLocationSelect = async (latlng) => {
+    setLocation(latlng);
+    persistCoords(latlng);
+    const resolvedAddress = await reverseGeocode(latlng.lat, latlng.lng);
+    if (resolvedAddress) {
+      setForm((prev) => ({ ...prev, address: resolvedAddress }));
+      persistAddress(resolvedAddress);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Page Header */}
@@ -153,8 +367,23 @@ const Donation = () => {
         </div>
         <form onSubmit={handleCreateListing} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="space-y-3">
-            <input name="item_name" value={form.item_name} onChange={handleFormChange} className="dash-input" placeholder="Item name" required />
-            <input name="category" value={form.category} onChange={handleFormChange} className="dash-input" placeholder="Category (optional)" />
+            <div>
+              <input
+                list="menu-items"
+                name="item_name"
+                value={form.item_name}
+                onChange={handleItemChange}
+                className="dash-input"
+                placeholder="Item name"
+                required
+              />
+              <datalist id="menu-items">
+                {combinedItemNames.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+            </div>
+            <input name="category" value={form.category} onChange={handleFormChange} className="dash-input" placeholder="Category" />
             <div className="grid grid-cols-2 gap-2">
               <input name="quantity" type="number" min="0" value={form.quantity} onChange={handleFormChange} className="dash-input" placeholder="Quantity" required />
               <input name="unit" value={form.unit} onChange={handleFormChange} className="dash-input" placeholder="Unit (kg, plates, etc.)" />
@@ -163,7 +392,10 @@ const Donation = () => {
               <input name="pickup_start" type="datetime-local" value={form.pickup_start} onChange={handleFormChange} className="dash-input" required />
               <input name="pickup_end" type="datetime-local" value={form.pickup_end} onChange={handleFormChange} className="dash-input" required />
             </div>
+            <input name="expires_at" type="datetime-local" value={form.expires_at} onChange={handleFormChange} className="dash-input" placeholder="Expiry (optional)" />
             <input name="address" value={form.address} onChange={handleFormChange} className="dash-input" placeholder="Pickup address" required />
+            <textarea name="notes" value={form.notes} onChange={handleFormChange} className="dash-input min-h-[90px]" placeholder="Notes for NGO (optional)" />
+            <p className="text-xs text-gray-500 dark:text-gray-400">Visibility: NGOs see listings based on their service radius.</p>
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button className="btn-primary w-full flex items-center justify-center gap-2" disabled={saving}>
               {saving ? <Loader2 className="animate-spin" size={18} /> : <PlusCircle size={18} />}
@@ -179,9 +411,10 @@ const Donation = () => {
               center={location}
               selectable
               markers={[{ id: 'pickup', lat: location.lat, lng: location.lng, label: 'Pickup' }]}
-              onSelect={(latlng) => setLocation(latlng)}
+              onSelect={handleLocationSelect}
               height="300px"
             />
+            {geoStatus && <p className="text-xs text-gray-500 dark:text-gray-400">{geoStatus}</p>}
           </div>
         </form>
       </div>
@@ -240,8 +473,8 @@ const Donation = () => {
               </div>
               
               <button
-                onClick={() => handleMark(item.id)}
-                disabled={isPicked}
+                onClick={() => handleMark(item)}
+                disabled={isPicked || saving}
                 className={`w-full sm:w-auto px-6 py-2 rounded-lg font-medium flex items-center justify-center gap-2 transition-all ${
                   isPicked 
                   ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-200 dark:border-gray-600' 
