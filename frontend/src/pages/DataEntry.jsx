@@ -7,6 +7,7 @@ import { presetMenuItems } from '../constants/presetMenuItems';
 import { getItemUnit } from '../utils/getItemUnit';
 
 const UNITS = ['units', 'plates', 'pieces', 'kg', 'liters', 'grams', 'ml'];
+const MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Other'];
 
 const DataEntry = () => {
   const { backendUser } = useAuth();
@@ -17,7 +18,9 @@ const DataEntry = () => {
     preparedQty: '',
     preparedUnit: 'units',
     soldQty: '',
-    soldUnit: 'units' // usually matches but we let user decide
+    soldUnit: 'units', // usually matches but we let user decide
+    entryDate: new Date().toISOString().split('T')[0],
+    mealType: 'Lunch',
   });
   
   const [status, setStatus] = useState(null);
@@ -50,15 +53,15 @@ const DataEntry = () => {
     const val = e.target.value;
     if (val === 'ADD_NEW') {
       setShowCustomModal(true);
-      setFormData({...formData, itemType: ''});
+      setFormData((prev) => ({ ...prev, itemType: '' }));
     } else {
       const unit = getItemUnit(val);
-      setFormData({
-        ...formData, 
+      setFormData((prev) => ({
+        ...prev,
         itemType: val,
         preparedUnit: unit,
-        soldUnit: unit
-      });
+        soldUnit: unit,
+      }));
     }
   };
 
@@ -77,7 +80,7 @@ const DataEntry = () => {
     
     if (res.success) {
       await fetchMenu();
-      setFormData({...formData, itemType: res.data.item_name}); // Automatically select the new item
+      setFormData((prev) => ({ ...prev, itemType: res.data.item_name })); // Automatically select the new item
       setShowCustomModal(false);
       setCustomItemName('');
     } else {
@@ -100,22 +103,51 @@ const DataEntry = () => {
       return;
     }
 
-    const now = new Date();
-    const log_date = now.toISOString().split('T')[0];
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const day_of_week = days[now.getDay()];
-
     const preparedQty = Number(formData.preparedQty);
     const soldQty = Number(formData.soldQty);
+
+    if (!Number.isFinite(preparedQty) || preparedQty < 0) {
+      setError('Prepared quantity must be a valid number.');
+      setLoading(false);
+      return;
+    }
+
+    if (!Number.isFinite(soldQty) || soldQty < 0) {
+      setError('Sold quantity must be a valid number.');
+      setLoading(false);
+      return;
+    }
+
+    const entryDate = formData.entryDate;
+    if (!entryDate) {
+      setError('Date is required.');
+      setLoading(false);
+      return;
+    }
+
+    const dateObj = new Date(`${entryDate}T00:00:00`);
+    if (Number.isNaN(dateObj.getTime())) {
+      setError('Date must be valid.');
+      setLoading(false);
+      return;
+    }
+
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const day_of_week = days[dateObj.getDay()];
     const wasteQty = Math.max(0, preparedQty - soldQty);
 
     const normalizedItem = formData.itemType.trim();
+    if (!normalizedItem) {
+      setError('Item name is required.');
+      setLoading(false);
+      return;
+    }
 
     const payload = {
-      date: log_date,
+      date: entryDate,
       day_of_week: day_of_week,
       item_name: normalizedItem,
-      meal_type: 'Lunch',
+      meal_type: formData.mealType,
       prepared_qty: preparedQty,
       sold_qty: soldQty,
       waste_qty: wasteQty
@@ -133,7 +165,9 @@ const DataEntry = () => {
         preparedQty: '', 
         preparedUnit: formData.preparedUnit,
         soldQty: '',
-        soldUnit: formData.soldUnit
+        soldUnit: formData.soldUnit,
+        entryDate: formData.entryDate,
+        mealType: formData.mealType,
       });
       setTimeout(() => setStatus(null), 4000);
     } else {
@@ -282,6 +316,33 @@ const DataEntry = () => {
                 <option key={item} value={item} />
               ))}
             </datalist>
+          </div>
+
+          {/* Date + Meal Type */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date</label>
+              <input
+                type="date"
+                className="dash-input"
+                value={formData.entryDate}
+                onChange={(e) => setFormData({ ...formData, entryDate: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Meal Type</label>
+              <select
+                className="dash-select"
+                value={formData.mealType}
+                onChange={(e) => setFormData({ ...formData, mealType: e.target.value })}
+                required
+              >
+                {MEAL_TYPES.map((type) => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Quantity Inputs — 2 Column Grid */}
