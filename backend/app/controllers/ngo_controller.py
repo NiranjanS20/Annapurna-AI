@@ -30,6 +30,10 @@ def save_ngo_profile(data):
 
     base_lat = float(base_lat)
     base_lng = float(base_lng)
+    if base_lat < -90 or base_lat > 90:
+        raise ValueError('base_lat must be between -90 and 90')
+    if base_lng < -180 or base_lng > 180:
+        raise ValueError('base_lng must be between -180 and 180')
 
     service_radius_km = data.get('service_radius_km')
     if service_radius_km is None:
@@ -162,7 +166,7 @@ def get_accepted_donations():
 
     return results
 
-#listing of notifications
+
 def list_notifications():
     profile = get_ngo_profile_for_user(g.current_user.id)
     if not profile:
