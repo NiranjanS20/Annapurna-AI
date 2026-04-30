@@ -60,131 +60,166 @@ def _notify_nearby_ngos(listing):
 
 
 def create_listing(data):
-    status = (data.get('status') or 'available').strip()
-    if status not in ['draft', 'available']:
-        status = 'available'
+    try:
+        status = (data.get('status') or 'available').strip()
+        if status not in ['draft', 'available']:
+            status = 'available'
 
-    if status == 'available':
-        ensure_finalizable_fields(data)
+        if status == 'available':
+            ensure_finalizable_fields(data)
 
-    listing = build_listing_payload(data, g.current_user, status_override=status)
-    db.session.add(listing)
-    log_audit_event(listing.id, 'created', actor_user_id=g.current_user.id, to_status=listing.status)
+        listing = build_listing_payload(data, g.current_user, status_override=status)
+        db.session.add(listing)
+        log_audit_event(listing.id, 'created', actor_user_id=g.current_user.id, to_status=listing.status)
 
-    notifications = []
-    if status == 'available':
-        notifications = _notify_nearby_ngos(listing)
+        notifications = []
+        if status == 'available':
+            notifications = _notify_nearby_ngos(listing)
 
-    commit_changes(listing, *notifications)
-    return listing.to_dict()
+        commit_changes(listing, *notifications)
+        return listing.to_dict()
+    except ValueError as e:
+        db.session.rollback()
+        raise e
+    except Exception as e:
+        db.session.rollback()
+        raise e
 
 
 def convert_donation_to_listing(donation, data):
-    ensure_finalizable_fields(data)
+    try:
+        ensure_finalizable_fields(data)
 
-    item_name = donation.item_name
-    category = (data.get('category') or '').strip()
-    if not category:
-        menu_item = MenuItem.query.filter(
-            MenuItem.item_name == item_name,
-            or_(MenuItem.user_id == None, MenuItem.user_id == g.current_user.id)
-        ).first()
-        category = menu_item.category if menu_item else None
+        item_name = donation.item_name
+        category = (data.get('category') or '').strip()
+        if not category:
+            menu_item = MenuItem.query.filter(
+                MenuItem.item_name == item_name,
+                or_(MenuItem.user_id == None, MenuItem.user_id == g.current_user.id)
+            ).first()
+            category = menu_item.category if menu_item else None
 
-    unit = (data.get('unit') or '').strip() or get_unit_for_item(item_name)
+        unit = (data.get('unit') or '').strip() or get_unit_for_item(item_name)
 
-    listing_data = {
-        'item_name': item_name,
-        'category': category,
-        'quantity': float(donation.quantity),
-        'unit': unit,
-        'pickup_start': data.get('pickup_start'),
-        'pickup_end': data.get('pickup_end'),
-        'lat': data.get('lat'),
-        'lng': data.get('lng'),
-        'address': data.get('address'),
-        'notes': data.get('notes'),
-        'expires_at': data.get('expires_at'),
-        'waste_context': 'surplus',
-        'status': 'available',
-    }
+        listing_data = {
+            'item_name': item_name,
+            'category': category,
+            'quantity': float(donation.quantity),
+            'unit': unit,
+            'pickup_start': data.get('pickup_start'),
+            'pickup_end': data.get('pickup_end'),
+            'lat': data.get('lat'),
+            'lng': data.get('lng'),
+            'address': data.get('address'),
+            'notes': data.get('notes'),
+            'expires_at': data.get('expires_at'),
+            'waste_context': 'surplus',
+            'status': 'available',
+        }
 
-    listing = build_listing_payload(listing_data, g.current_user, status_override='available')
-    db.session.add(listing)
-    donation.status = 'picked'
-    db.session.add(donation)
+        listing = build_listing_payload(listing_data, g.current_user, status_override='available')
+        db.session.add(listing)
+        donation.status = 'picked'
+        db.session.add(donation)
 
-    log_audit_event(listing.id, 'created', actor_user_id=g.current_user.id, to_status=listing.status)
-    notifications = _notify_nearby_ngos(listing)
+        log_audit_event(listing.id, 'created', actor_user_id=g.current_user.id, to_status=listing.status)
+        notifications = _notify_nearby_ngos(listing)
 
-    commit_changes(listing, donation, *notifications)
-    return listing.to_dict()
+        commit_changes(listing, donation, *notifications)
+        return listing.to_dict()
+    except ValueError as e:
+        db.session.rollback()
+        raise e
+    except Exception as e:
+        db.session.rollback()
+        raise e
 
 
 def finalize_listing(listing, data):
     if listing.status != 'draft':
         raise ValueError('Only draft listings can be finalized')
 
-    ensure_finalizable_fields(data)
+    try:
+        ensure_finalizable_fields(data)
 
-    listing.pickup_start = listing.pickup_start or parse_datetime(data.get('pickup_start'))
-    listing.pickup_end = listing.pickup_end or parse_datetime(data.get('pickup_end'))
-    listing.lat = listing.lat or (float(data.get('lat')) if data.get('lat') is not None else None)
-    listing.lng = listing.lng or (float(data.get('lng')) if data.get('lng') is not None else None)
-    listing.address = listing.address or data.get('address')
-    if data.get('notes'):
-        listing.notes = data.get('notes')
-    if data.get('expires_at'):
-        listing.expires_at = parse_datetime(data.get('expires_at'))
+        listing.pickup_start = listing.pickup_start or parse_datetime(data.get('pickup_start'))
+        listing.pickup_end = listing.pickup_end or parse_datetime(data.get('pickup_end'))
+        listing.lat = listing.lat or (float(data.get('lat')) if data.get('lat') is not None else None)
+        listing.lng = listing.lng or (float(data.get('lng')) if data.get('lng') is not None else None)
+        listing.address = listing.address or data.get('address')
+        if data.get('notes'):
+            listing.notes = data.get('notes')
+        if data.get('expires_at'):
+            listing.expires_at = parse_datetime(data.get('expires_at'))
 
-    transition_listing(listing, 'available', actor_user_id=g.current_user.id)
+        transition_listing(listing, 'available', actor_user_id=g.current_user.id)
 
-    notifications = _notify_nearby_ngos(listing)
-    commit_changes(listing, *notifications)
-    return listing.to_dict()
+        notifications = _notify_nearby_ngos(listing)
+        commit_changes(listing, *notifications)
+        return listing.to_dict()
+    except ValueError as e:
+        db.session.rollback()
+        raise e
+    except Exception as e:
+        db.session.rollback()
+        raise e
 
 
 def schedule_pickup(listing, pickup_eta):
     if listing.status != 'accepted':
         raise ValueError('Pickup can only be scheduled after acceptance')
 
-    acceptance = DonationAcceptance.query.filter_by(donation_id=listing.id).first()
-    if not acceptance:
-        raise ValueError('No acceptance record found for listing')
+    try:
+        acceptance = DonationAcceptance.query.filter_by(donation_id=listing.id).first()
+        if not acceptance:
+            raise ValueError('No acceptance record found for listing')
 
-    acceptance.pickup_eta = pickup_eta
-    acceptance.status = 'pickup_scheduled'
-    transition_listing(listing, 'pickup_scheduled', actor_user_id=g.current_user.id)
-    commit_changes(listing, acceptance)
+        acceptance.pickup_eta = pickup_eta
+        acceptance.status = 'pickup_scheduled'
+        transition_listing(listing, 'pickup_scheduled', actor_user_id=g.current_user.id)
+        commit_changes(listing, acceptance)
 
-    publish_event({
-        'type': 'pickup_scheduled',
-        'donation_id': listing.id,
-        'user_id': listing.user_id,
-    })
+        publish_event({
+            'type': 'pickup_scheduled',
+            'donation_id': listing.id,
+            'user_id': listing.user_id,
+        })
 
-    return listing.to_dict()
+        return listing.to_dict()
+    except ValueError as e:
+        db.session.rollback()
+        raise e
+    except Exception as e:
+        db.session.rollback()
+        raise e
 
 
 def complete_listing(listing):
     if listing.status != 'pickup_scheduled':
         raise ValueError('Only pickup_scheduled listings can be completed')
 
-    acceptance = DonationAcceptance.query.filter_by(donation_id=listing.id).first()
-    if acceptance:
-        acceptance.status = 'completed'
-        acceptance.completion_timestamp = datetime.now(timezone.utc)
+    try:
+        acceptance = DonationAcceptance.query.filter_by(donation_id=listing.id).first()
+        if acceptance:
+            acceptance.status = 'completed'
+            acceptance.completion_timestamp = datetime.now(timezone.utc)
 
-    transition_listing(listing, 'completed', actor_user_id=g.current_user.id)
-    commit_changes(listing, acceptance)
+        transition_listing(listing, 'completed', actor_user_id=g.current_user.id)
+        commit_changes(listing, acceptance)
 
-    publish_event({
-        'type': 'donation_completed',
-        'donation_id': listing.id,
-        'user_id': listing.user_id,
-    })
+        publish_event({
+            'type': 'donation_completed',
+            'donation_id': listing.id,
+            'user_id': listing.user_id,
+        })
 
-    return listing.to_dict()
+        return listing.to_dict()
+    except ValueError as e:
+        db.session.rollback()
+        raise e
+    except Exception as e:
+        db.session.rollback()
+        raise e
 
 
 def build_listing_response_for_ngo(listing, distance_km=None, eta_minutes=None):
