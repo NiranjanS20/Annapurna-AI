@@ -38,14 +38,10 @@ def create_app(config_name=None):
     if database_url:
         if database_url.startswith('postgres://'):
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
-            
         app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-        "pool_size": 2,
-        "max_overflow": 1,
-    }
+
     # ------------------------------------------------------------------
     # Logging
     # ------------------------------------------------------------------
@@ -59,7 +55,17 @@ def create_app(config_name=None):
     # ------------------------------------------------------------------
     # CORS
     # ------------------------------------------------------------------
-    CORS(app, resources={r"/api/*": {"origins": app.config.get('CORS_ORIGINS', '*')}})
+    cors_origins = app.config.get('CORS_ORIGINS', '*')
+    if isinstance(cors_origins, str) and cors_origins != '*':
+        cors_origins = [o.strip() for o in cors_origins.split(',') if o.strip()]
+
+    CORS(app, resources={r"/api/*": {
+        "origins": cors_origins,
+        "allow_headers": ["Authorization", "Content-Type", "Idempotency-Key"],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+        "supports_credentials": True,
+        "max_age": 600,
+    }})
 
     # ------------------------------------------------------------------
     # Extensions
@@ -125,6 +131,8 @@ def create_app(config_name=None):
     from app.routes.analytics_routes import analytics_bp
     from app.routes.donation_routes import donation_bp
     from app.routes.alert_routes import alert_bp
+    from app.routes.ngo_routes import ngo_bp
+    from app.routes.stream_routes import stream_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(data_bp, url_prefix='/api/data')
@@ -132,6 +140,8 @@ def create_app(config_name=None):
     app.register_blueprint(analytics_bp, url_prefix='/api/analytics')
     app.register_blueprint(donation_bp, url_prefix='/api/donations')
     app.register_blueprint(alert_bp, url_prefix='/api/alerts')
+    app.register_blueprint(ngo_bp, url_prefix='/api/ngo')
+    app.register_blueprint(stream_bp, url_prefix='/api/stream')
 
     # ------------------------------------------------------------------
     # Route aliases (match what the frontend actually calls)
