@@ -13,24 +13,56 @@ import Analytics from './pages/Analytics';
 import Alerts from './pages/Alerts';
 import Donation from './pages/Donation';
 import Landing from './pages/Landing';
+import NGODashboard from './pages/NGODashboard';
+import NGONearby from './pages/NGONearby';
+import NGOOnboarding from './pages/NGOOnboarding';
 
 // Layout Components
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 
 const ProtectedRoute = ({ children }) => {
-  const { currentUser, backendUser, loading } = useAuth();
+  const {
+    currentUser,
+    backendUser,
+    authInitialized,
+    authLoading,
+    tokenReady,
+    syncLoading,
+    tokenRefreshing,
+    reconnecting,
+    syncError,
+  } = useAuth();
   
-  if (loading) {
+  const isBooting = !authInitialized || authLoading || syncLoading || tokenRefreshing;
+
+  if (isBooting) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-slate-100 dark:bg-slate-900 transition-colors duration-300">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600"></div>
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600"></div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Loading session...</p>
+        </div>
       </div>
     );
   }
   
-  if (!currentUser || !backendUser) {
+  if (!currentUser) {
     return <Navigate to={ROUTES.AUTH} replace />;
+  }
+
+  if (!backendUser || !tokenReady) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-100 dark:bg-slate-900 transition-colors duration-300">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <div className="animate-pulse h-3 w-24 rounded-full bg-blue-200 dark:bg-blue-900"></div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {reconnecting ? 'Reconnecting to the server...' : 'Syncing your profile...'}
+          </p>
+          {syncError && <p className="text-xs text-gray-400 dark:text-gray-500">{syncError}</p>}
+        </div>
+      </div>
+    );
   }
   
   return children;
@@ -50,6 +82,17 @@ const Layout = ({ children }) => {
   );
 };
 
+const RoleRoute = ({ roles, children }) => {
+  const { backendUser } = useAuth();
+  const role = backendUser?.role || 'canteen';
+
+  if (!roles.includes(role)) {
+    return <Navigate to={ROUTES.DASHBOARD} replace />;
+  }
+
+  return children;
+};
+
 function App() {
   return (
     <AuthProvider>
@@ -66,6 +109,10 @@ function App() {
             <Route path={ROUTES.ANALYTICS} element={<ProtectedRoute><Layout><Analytics /></Layout></ProtectedRoute>} />
             <Route path={ROUTES.ALERTS} element={<ProtectedRoute><Layout><Alerts /></Layout></ProtectedRoute>} />
             <Route path={ROUTES.DONATION} element={<ProtectedRoute><Layout><Donation /></Layout></ProtectedRoute>} />
+
+            <Route path={ROUTES.NGO_ONBOARDING} element={<ProtectedRoute><Layout><NGOOnboarding /></Layout></ProtectedRoute>} />
+            <Route path={ROUTES.NGO_DASHBOARD} element={<ProtectedRoute><RoleRoute roles={['ngo', 'admin']}><Layout><NGODashboard /></Layout></RoleRoute></ProtectedRoute>} />
+            <Route path={ROUTES.NGO_NEARBY} element={<ProtectedRoute><RoleRoute roles={['ngo', 'admin']}><Layout><NGONearby /></Layout></RoleRoute></ProtectedRoute>} />
             
             <Route path="*" element={<Navigate to={ROUTES.HOME} />} />
           </Routes>
