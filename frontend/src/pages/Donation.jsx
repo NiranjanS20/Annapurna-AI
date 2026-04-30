@@ -216,7 +216,7 @@ const Donation = () => {
     }
 
     if (new Date(form.pickup_start) >= new Date(form.pickup_end)) {
-      setError('Expiry date must be after publish date.');
+      setError('"Available Until" must be after "Available From".');
       return;
     }
 
@@ -296,7 +296,7 @@ const Donation = () => {
     }
 
     if (new Date(form.pickup_start) >= new Date(form.pickup_end)) {
-      setError('Expiry date must be after publish date.');
+      setError('"Available Until" must be after "Available From".');
       setSaving(false);
       return;
     }
@@ -340,7 +340,7 @@ const Donation = () => {
       return;
     }
     if (new Date(form.pickup_start) >= new Date(form.pickup_end)) {
-      setError('Expiry date must be after publish date.');
+      setError('"Available Until" must be after "Available From".');
       setSaving(false);
       return;
     }
