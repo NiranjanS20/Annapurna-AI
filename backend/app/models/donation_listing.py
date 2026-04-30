@@ -26,6 +26,8 @@ class DonationListing(db.Model):
     quantity = db.Column(db.Numeric(10, 2), nullable=False)
     unit = db.Column(db.String(30), nullable=False, default='units')
     waste_context = db.Column(db.String(50), nullable=True)
+    notes = db.Column(db.Text, nullable=True)
+    source_food_data_id = db.Column(db.Integer, db.ForeignKey('food_data.id'), nullable=True, index=True)
 
     pickup_start = db.Column(db.DateTime(timezone=True), nullable=True)
     pickup_end = db.Column(db.DateTime(timezone=True), nullable=True)
@@ -59,6 +61,8 @@ class DonationListing(db.Model):
             'quantity': float(self.quantity),
             'unit': self.unit,
             'waste_context': self.waste_context,
+            'notes': self.notes,
+            'source_food_data_id': self.source_food_data_id,
             'pickup_start': self.pickup_start.isoformat() if self.pickup_start else None,
             'pickup_end': self.pickup_end.isoformat() if self.pickup_end else None,
             'lat': float(self.lat) if self.lat is not None else None,
