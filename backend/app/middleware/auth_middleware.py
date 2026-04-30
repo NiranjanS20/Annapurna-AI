@@ -26,6 +26,7 @@ def firebase_auth_required(f):
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        correlation_id = request.headers.get('X-Correlation-ID', 'none')
         auth_header = request.headers.get('Authorization', '')
 
         id_token = None
@@ -36,7 +37,10 @@ def firebase_auth_required(f):
             id_token = request.args.get('token', '').strip()
 
         if not id_token:
-            logger.warning('Auth: Missing token for %s %s', request.method, request.path)
+            logger.warning(
+                'Auth: Missing token | route=%s %s | corr=%s',
+                request.method, request.path, correlation_id
+            )
             return jsonify({
                 'success': False,
                 'error': 'Missing or malformed Authorization header. Expected: Bearer <token>',
@@ -46,7 +50,10 @@ def firebase_auth_required(f):
         try:
             decoded_token = verify_firebase_token(id_token)
         except Exception as exc:
-            logger.warning('Auth: Token verification failed for %s: %s', request.path, exc)
+            logger.warning(
+                'Auth: Token verification failed | route=%s | corr=%s | err=%s',
+                request.path, correlation_id, exc
+            )
             return jsonify({
                 'success': False,
                 'error': f'Invalid or expired authentication token: {str(exc)}',
@@ -81,7 +88,10 @@ def firebase_auth_required(f):
         try:
             user = get_user_only(firebase_uid, email=email)
         except SQLAlchemyError as db_exc:
-            logger.error('Auth: DB error during user lookup (UID=%s): %s', firebase_uid, db_exc)
+            logger.error(
+                'Auth: DB error during user lookup | uid=%s | corr=%s | err=%s',
+                firebase_uid, correlation_id, db_exc
+            )
             # Recovery: rollback and retry
             try:
                 db.session.rollback()
@@ -90,15 +100,18 @@ def firebase_auth_required(f):
                 user = None
             recovery_triggered = True
         except Exception as exc:
-            logger.error('Auth: Unexpected error during user lookup (UID=%s): %s', firebase_uid, exc)
+            logger.error(
+                'Auth: Unexpected error during user lookup | uid=%s | corr=%s | err=%s',
+                firebase_uid, correlation_id, exc
+            )
             user = None
 
         # Step 2: Self-healing — if user not found, auto-create via UPSERT
         if not user:
             logger.info(
-                'Auth: User not found via strict lookup (UID=%s, email=%s). '
+                'Auth: User not found via strict lookup | uid=%s | email=%s | corr=%s | '
                 'Attempting self-healing auto-creation.',
-                firebase_uid, email
+                firebase_uid, email, correlation_id
             )
             try:
                 user, _ = get_or_create_user(
@@ -107,7 +120,10 @@ def firebase_auth_required(f):
                 )
                 recovery_triggered = True
             except Exception as create_exc:
-                logger.error('Auth: Self-healing user creation failed (UID=%s): %s', firebase_uid, create_exc)
+                logger.error(
+                    'Auth: Self-healing user creation failed | uid=%s | corr=%s | err=%s',
+                    firebase_uid, correlation_id, create_exc
+                )
                 return jsonify({
                     'success': False,
                     'error': 'Authentication failed: unable to resolve user account. Please try logging out and back in.',
@@ -125,8 +141,8 @@ def firebase_auth_required(f):
 
         if recovery_triggered:
             logger.info(
-                'Auth: Self-healing recovery succeeded for UID=%s (user_id=%s, role=%s)',
-                firebase_uid, user.id, user.role
+                'Auth: Self-healing recovery succeeded | uid=%s | user_id=%s | role=%s | corr=%s',
+                firebase_uid, user.id, user.role, correlation_id
             )
 
         return f(*args, **kwargs)
