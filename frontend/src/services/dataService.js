@@ -30,12 +30,18 @@ export const postDataEntry = async (data) => {
       success: body.success ?? true,
       message: body.message || body.error || 'Data logged successfully.',
       data: body.data || null,
+      correlation_id: body.correlation_id || null,
     };
   } catch (error) {
     console.error('Error posting data entry:', error);
-    // api.js interceptor wraps the backend error into error.message
     const errMsg = error.message || 'Failed to log data. Please try again.';
-    return { success: false, message: errMsg, data: null };
+    return {
+      success: false,
+      message: errMsg,
+      data: null,
+      error_code: error.errorCode || null,
+      correlation_id: error.correlationId || null,
+    };
   }
 };
 
@@ -59,11 +65,20 @@ export const uploadBillingCsv = async (file) => {
       rows_inserted: body.rows_inserted || 0,
       skipped_duplicates: body.skipped_duplicates || 0,
       skipped_invalid: body.skipped_invalid || 0,
+      duration_ms: body.duration_ms || null,
+      correlation_id: body.correlation_id || null,
     };
   } catch (error) {
     console.error('Error uploading CSV:', error);
-    const errMsg = error.response?.data?.error || error.message || 'Failed to upload CSV.';
-    return { success: false, message: errMsg, data: null };
+    // api.js interceptor already normalizes into error.message
+    const errMsg = error.message || 'Failed to upload CSV.';
+    return {
+      success: false,
+      message: errMsg,
+      data: null,
+      error_code: error.errorCode || null,
+      correlation_id: error.correlationId || null,
+    };
   }
 };
 
@@ -92,7 +107,7 @@ export const addMenuItem = async (name, category = 'Custom') => {
     };
   } catch (error) {
     console.error('Error creating menu item:', error);
-    const errMsg = error.response?.data?.error || error.response?.data?.message || 'Failed to create menu item.';
+    const errMsg = error.message || 'Failed to create menu item.';
     return { success: false, message: errMsg, data: null };
   }
 };
@@ -132,7 +147,7 @@ export const createDonation = async (data) => {
     };
   } catch (error) {
     console.error('Error creating donation:', error);
-    return { success: false, message: 'Failed to create donation' };
+    return { success: false, message: error.message || 'Failed to create donation.' };
   }
 };
 
@@ -147,7 +162,7 @@ export const markDonation = async (id) => {
     };
   } catch (error) {
     console.error('Error marking donation:', error);
-    return { success: false, message: 'Failed to mark donation' };
+    return { success: false, message: error.message || 'Failed to mark donation.' };
   }
 };
 
@@ -162,7 +177,7 @@ export const convertDonationToListing = async (id, payload) => {
     };
   } catch (error) {
     console.error('Error converting donation to listing:', error);
-    const errMsg = error.response?.data?.error || error.message || 'Failed to convert donation.';
+    const errMsg = error.message || 'Failed to convert donation.';
     return { success: false, message: errMsg, data: null };
   }
 };
