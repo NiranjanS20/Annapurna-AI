@@ -3,13 +3,13 @@ import logging
 from io import StringIO
 from datetime import datetime
 from flask import g
+from app import db
 from app.models.food_data import FoodData
 from app.utils.db_transaction import execute_transaction
 from app.controllers.data_controller import check_alerts_and_donations
 
 logger = logging.getLogger(__name__)
 
-# Minimal category mapping reflecting presetMenuItems.js logic natively
 PRESET_CATEGORIES = {
     "Rice": "main", "Jeera Rice": "main", "Veg Pulao": "main", "Peas Pulao": "main", "Veg Biryani": "main",
     "Chicken Biryani": "main", "Mutton Biryani": "main", "Egg Biryani": "main", "Dal Tadka": "main",
@@ -31,34 +31,49 @@ PRESET_CATEGORIES = {
     "Uttapam": "south", "Appam": "south",
     "Gulab Jamun": "dessert", "Rasgulla": "dessert", "Jalebi": "dessert", "Ladoo": "dessert", "Barfi": "dessert",
     "Kaju Katli": "dessert", "Brownie": "dessert", "Pastry": "dessert", "Cupcake": "dessert", "Ice Cream": "dessert",
-    "Tea": "beverage", "Masala Chai": "beverage", "Green Tea": "beverage", "Coffee": "beverage", "Filter Coffee": "beverage",
-    "Cold Coffee": "beverage", "Hot Chocolate": "beverage", "Lassi": "beverage", "Sweet Lassi": "beverage",
-    "Mango Lassi": "beverage", "Buttermilk": "beverage", "Chaas": "beverage", "Mojito": "beverage",
-    "Fresh Lime Soda": "beverage", "Lemonade": "beverage", "Orange Juice": "beverage", "Watermelon Juice": "beverage",
-    "Mixed Fruit Juice": "beverage", "Milkshake": "beverage", "Mango Shake": "beverage", "Chocolate Shake": "beverage",
-    "Soda": "beverage", "Soft Drink": "beverage", "Water": "beverage", "Soup": "beverage", "Tomato Soup": "beverage",
-    "Sweet Corn Soup": "beverage", "Manchow Soup": "beverage"
+    "Tea": "beverage", "Masala Chai": "beverage", "Green Tea": "beverage", "Coffee": "beverage",
+    "Filter Coffee": "beverage", "Cold Coffee": "beverage", "Hot Chocolate": "beverage", "Lassi": "beverage",
+    "Sweet Lassi": "beverage", "Mango Lassi": "beverage", "Buttermilk": "beverage", "Chaas": "beverage",
+    "Mojito": "beverage", "Fresh Lime Soda": "beverage", "Lemonade": "beverage", "Orange Juice": "beverage",
+    "Watermelon Juice": "beverage", "Mixed Fruit Juice": "beverage", "Milkshake": "beverage",
+    "Mango Shake": "beverage", "Chocolate Shake": "beverage", "Soda": "beverage", "Soft Drink": "beverage",
+    "Water": "beverage", "Soup": "beverage", "Tomato Soup": "beverage", "Sweet Corn Soup": "beverage",
+    "Manchow Soup": "beverage"
 }
+
+MAX_CSV_ROWS = 5000
 
 def process_csv_upload(file):
     """
-    Parses a CSV file and inserts rows into the food_data table.
-    CSV Format expected: date,item_name,quantity_sold (optional: prepared_qty)
+    Parses CSV and inserts rows into food_data. Row-level error handling.
     """
+    parsing_errors = []
     try:
-        content = file.read().decode('utf-8')
+        try:
+            content = file.read().decode('utf-8')
+        except UnicodeDecodeError:
+            file.seek(0)
+            content = file.read().decode('utf-8-sig')
+
+        if not content.strip():
+            raise ValueError("CSV file is empty.")
+
         csv_reader = csv.DictReader(StringIO(content))
-        
         required_cols = ['date', 'item_name', 'quantity_sold']
         headers = csv_reader.fieldnames or []
         headers = [h.strip() for h in headers]
         if headers and headers[0].startswith('\ufeff'):
             headers[0] = headers[0].replace('\ufeff', '')
         csv_reader.fieldnames = headers
-        
-        # Validate columns
-        if not all(col in headers for col in required_cols):
-            raise ValueError(f"CSV must contain columns: {', '.join(required_cols)}")
+
+        missing_cols = [c for c in required_cols if c not in headers]
+        if missing_cols:
+            raise ValueError(f"CSV missing required columns: {', '.join(missing_cols)}. Found: {', '.join(headers)}")
+
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
 
         to_insert = []
         alert_triggers = []
@@ -66,28 +81,25 @@ def process_csv_upload(file):
         skipped_duplicates = 0
         skipped_invalid = 0
 
-        for row in csv_reader:
-            # Skip completely empty rows
+        for row_num, row in enumerate(csv_reader, start=2):
+            if rows_processed >= MAX_CSV_ROWS:
+                parsing_errors.append(f"Row {row_num}: Max {MAX_CSV_ROWS} rows reached.")
+                break
             if not any(row.values()):
                 continue
-
             try:
-                # 1. Normalization
                 date_str = (row.get('date') or '').strip()
                 item_name = (row.get('item_name') or '').strip().title()
-                quantity_sold_raw = (row.get('quantity_sold') or '').strip()
+                qty_raw = (row.get('quantity_sold') or '').strip()
 
-                if not date_str or not item_name or quantity_sold_raw == '':
+                if not date_str or not item_name or qty_raw == '':
                     skipped_invalid += 1
                     continue
-
                 try:
-                    sold_qty = float(quantity_sold_raw)
+                    sold_qty = float(qty_raw)
                 except ValueError:
                     skipped_invalid += 1
                     continue
-
-                # 2. Derived fields
                 try:
                     log_date = datetime.strptime(date_str, '%Y-%m-%d').date()
                 except ValueError:
@@ -95,8 +107,6 @@ def process_csv_upload(file):
                     continue
 
                 day_of_week = log_date.strftime('%A')
-
-                # Try extracting optional prepared_qty
                 raw_prepared = row.get('prepared_qty')
                 if raw_prepared and raw_prepared.strip():
                     try:
@@ -104,68 +114,48 @@ def process_csv_upload(file):
                     except ValueError:
                         prepared_qty = sold_qty
                 else:
-                    # Fallback assumption
                     prepared_qty = sold_qty
 
                 waste_qty = max(0.0, prepared_qty - sold_qty)
-
-                # Map item properly via strict categorization, defaulting safely to 'Other'
                 meal_type = PRESET_CATEGORIES.get(item_name, "Other")
 
-                # 4. Duplicate Protection
-                # Check if record already exists for this date, item AND user
                 exists = FoodData.query.filter_by(
-                    date=log_date,
-                    item_name=item_name,
-                    user_id=g.current_user.id
+                    date=log_date, item_name=item_name, user_id=g.current_user.id
                 ).first()
                 if exists:
                     skipped_duplicates += 1
                     continue
 
                 log = FoodData(
-                    date=log_date,
-                    day_of_week=day_of_week,
-                    item_name=item_name,
-                    meal_type=meal_type,
-                    prepared_qty=prepared_qty,
-                    sold_qty=sold_qty,
-                    waste_qty=waste_qty,
-                    user_id=g.current_user.id
+                    date=log_date, day_of_week=day_of_week, item_name=item_name,
+                    meal_type=meal_type, prepared_qty=prepared_qty, sold_qty=sold_qty,
+                    waste_qty=waste_qty, user_id=g.current_user.id
                 )
                 to_insert.append(log)
-                # Store data to trigger alerts/donations after successful commit
                 alert_triggers.append((log, prepared_qty, sold_qty, waste_qty))
-
                 rows_processed += 1
             except Exception:
                 skipped_invalid += 1
                 continue
 
-        # 5. Insert & Trigger logic
         if to_insert:
             execute_transaction(*to_insert)
-            
-            # Fire business logic evaluating waste thresholds for each successful row
-            for t_log, t_prepared_qty, t_sold_qty, t_waste_qty in alert_triggers:
-                check_alerts_and_donations(
-                    t_log.item_name,
-                    t_log.date,
-                    t_prepared_qty,
-                    t_sold_qty,
-                    t_waste_qty,
-                    t_log.id,
-                )
+            for t_log, t_prep, t_sold, t_waste in alert_triggers:
+                try:
+                    check_alerts_and_donations(t_log.item_name, t_log.date, t_prep, t_sold, t_waste, t_log.id)
+                except Exception as e:
+                    logger.error("CSV alert trigger error (non-blocking): %s", e)
 
-        return {
-            "success": True,
-            "rows_inserted": len(to_insert),
-            "skipped_duplicates": skipped_duplicates,
-            "skipped_invalid": skipped_invalid,
+        result = {
+            "success": True, "rows_inserted": len(to_insert),
+            "skipped_duplicates": skipped_duplicates, "skipped_invalid": skipped_invalid,
         }
+        if parsing_errors:
+            result["parsing_errors"] = parsing_errors[:20]
+        return result
 
-    except ValueError as val_err:
-        raise val_err
+    except ValueError:
+        raise
     except Exception as e:
         logger.error(f"Error processing CSV: {e}")
-        raise ValueError(f"Failed to process CSV file.")
+        raise ValueError(f"Failed to process CSV file: {str(e)}")
