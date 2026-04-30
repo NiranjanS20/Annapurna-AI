@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { requestNotificationPermission, onForegroundMessage } from '../services/notificationService';
-import { connectNotificationStream, getNgoNotifications, markNgoNotificationRead } from '../services/donationService';
+import { connectNotificationStream, getDonationNotifications, markNgoNotificationRead } from '../services/donationService';
 import { useAuth } from '../context/AuthContext';
 
 export const useNotifications = () => {
@@ -53,7 +53,9 @@ export const useNotifications = () => {
     const hydrateNgoNotifications = async () => {
       if (backendUser?.role !== 'ngo') return;
       try {
-        const list = await getNgoNotifications();
+        const response = await getDonationNotifications();
+        if (!response.success) return;
+        const list = response.data || [];
         if (!isMounted) return;
         setNotifications(
           list.map((n) => ({
