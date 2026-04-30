@@ -162,7 +162,7 @@ def get_accepted_donations():
 
     return results
 
-
+#listing of notifications
 def list_notifications():
     profile = get_ngo_profile_for_user(g.current_user.id)
     if not profile:
