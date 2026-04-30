@@ -11,6 +11,7 @@ from app.models.food_data import FoodData
 from app.models.donation import Donation
 from app.models.donation_listing import DonationListing
 from app.models.donation_acceptance import DonationAcceptance
+from app.models.prediction import Prediction
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,17 @@ def get_dashboard_data():
     print("Dashboard query returned", len(logs), "food_data rows")
 
     if len(logs) == 0:
-        return {"isEmpty": True}
+        global_count = FoodData.query.count()
+        null_user_count = FoodData.query.filter(FoodData.user_id == None).count()
+        if global_count > 0:
+            logger.warning(
+                "Analytics mismatch: user %s has no logs but %d total logs exist (null_user_id=%d)",
+                g.current_user.id,
+                global_count,
+                null_user_count,
+            )
+        prediction_count = Prediction.query.filter_by(user_id=g.current_user.id).count()
+        return {"isEmpty": True, "record_count": 0, "unique_dates": 0, "predictionCount": prediction_count}
 
     total_waste = sum([float(log.waste_qty) for log in logs])
     total_prepared = sum([float(log.prepared_qty) for log in logs])
@@ -93,10 +104,12 @@ def get_dashboard_data():
         accepted_count = 0
         completed_count = 0
 
+    prediction_count = Prediction.query.filter_by(user_id=g.current_user.id).count()
     result = {
         "isEmpty": False,
         "record_count": len(logs),
         "unique_dates": unique_dates,
+        "predictionCount": prediction_count,
         "wasteStats": {
             "total_waste": round(total_waste, 2),
             "total_prepared": round(total_prepared, 2),
