@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, PackageCheck, MapPin, PlusCircle, Loader2 } from 'lucide-react';
-import { getDonations, convertDonationToListing, getMenuItems } from '../services/dataService';
-import { createDonationListing, getDonationListings, finalizeDonationListing, schedulePickup, completeDonation } from '../services/donationService';
+import { getMenuItems } from '../services/dataService';
+import {
+  getDonations,
+  convertDonationToListing,
+  createDonationListing,
+  getDonationListings,
+  finalizeDonationListing,
+  schedulePickup,
+  completeDonation,
+} from '../services/donationService';
 import { useAuth } from '../context/AuthContext';
 import { presetMenuItems } from '../constants/presetMenuItems';
 import { NOMINATIM_BASE_URL } from '../utils/mapConfig';
@@ -112,14 +120,14 @@ const Donation = () => {
 
   useEffect(() => {
     const fetchDonations = async () => {
-      const [data, listingData, menuResponse] = await Promise.all([
+      const [donationResponse, listingResponse, menuResponse] = await Promise.all([
         getDonations(),
-        getDonationListings().catch(() => []),
+        getDonationListings(),
         getMenuItems(),
       ]);
-      console.log("Donations data received:", data);
-      setSurplus(data);
-      setListings(listingData);
+      console.log("Donations data received:", donationResponse.data || []);
+      setSurplus(donationResponse.data || []);
+      setListings(listingResponse.data || []);
       setMenuItems(menuResponse.data || []);
       setLoading(false);
     };
@@ -195,8 +203,8 @@ const Donation = () => {
   }, [backendUser]);
 
   const refreshListings = async () => {
-    const listingData = await getDonationListings().catch(() => []);
-    setListings(listingData);
+    const listingResponse = await getDonationListings();
+    setListings(listingResponse.data || []);
   };
 
   const handleMark = async (item) => {
@@ -274,13 +282,17 @@ const Donation = () => {
     setError('');
 
     try {
-      await createDonationListing({
+      const result = await createDonationListing({
         ...form,
         quantity: Number(form.quantity),
         lat: location.lat,
         lng: location.lng,
         status: 'available',
       });
+      if (!result.success) {
+        setError(result.message || 'Failed to create listing.');
+        return;
+      }
       setForm({
         item_name: '',
         category: '',
@@ -304,7 +316,7 @@ const Donation = () => {
     setSaving(true);
     setError('');
     try {
-      await finalizeDonationListing(listingId, {
+      const result = await finalizeDonationListing(listingId, {
         pickup_start: form.pickup_start,
         pickup_end: form.pickup_end,
         lat: location.lat,
@@ -313,6 +325,10 @@ const Donation = () => {
         expires_at: form.expires_at,
         notes: form.notes,
       });
+      if (!result.success) {
+        setError(result.message || 'Failed to finalize listing.');
+        return;
+      }
       await refreshListings();
     } catch (err) {
       setError(err.message || 'Failed to finalize listing.');
@@ -323,7 +339,11 @@ const Donation = () => {
 
   const handleSchedulePickup = async (listingId) => {
     try {
-      await schedulePickup(listingId, pickupEta[listingId]);
+      const result = await schedulePickup(listingId, pickupEta[listingId]);
+      if (!result.success) {
+        setError(result.message || 'Failed to schedule pickup.');
+        return;
+      }
       await refreshListings();
     } catch (err) {
       setError(err.message || 'Failed to schedule pickup.');
@@ -332,7 +352,11 @@ const Donation = () => {
 
   const handleComplete = async (listingId) => {
     try {
-      await completeDonation(listingId);
+      const result = await completeDonation(listingId);
+      if (!result.success) {
+        setError(result.message || 'Failed to complete listing.');
+        return;
+      }
       await refreshListings();
     } catch (err) {
       setError(err.message || 'Failed to complete listing.');
