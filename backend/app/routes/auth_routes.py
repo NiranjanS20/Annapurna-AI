@@ -32,14 +32,14 @@ def verify_token():
     if not id_token:
         return jsonify({'success': False, 'error': 'idToken is required.', 'data': None}), 400
 
-    logger.info(f"Received Token for verification: {id_token[:10]}...")
+    logger.info("Received Token for verification: %s...", id_token[:10])
 
     try:
         decoded = verify_firebase_token(id_token)
-        logger.info(f"Token verified successfully for UID: {decoded.get('uid')}")
+        logger.info("Token verified successfully for UID: %s", decoded.get('uid'))
     except Exception as e:
-        logger.error(f"Firebase token verification failed in /verify: {str(e)}")
-        return jsonify({'success': False, 'error': f'Invalid or expired token: {str(e)}', 'data': None}), 401
+        logger.error("Firebase token verification failed in /verify: %s", str(e))
+        return jsonify({'success': False, 'error': 'Invalid or expired token: ' + str(e), 'data': None}), 401
 
     firebase_uid = decoded.get('uid')
     email = decoded.get('email', '')
@@ -87,14 +87,14 @@ def sync_user():
     if not id_token:
         return jsonify({'success': False, 'error': 'idToken is required.', 'data': None}), 400
 
-    logger.info(f"Received Token for sync: {id_token[:10]}...")
+    logger.info("Received Token for sync: %s...", id_token[:10])
 
     try:
         decoded = verify_firebase_token(id_token)
-        logger.info(f"Token verified successfully for UID: {decoded.get('uid')}")
+        logger.info("Token verified successfully for UID: %s", decoded.get('uid'))
     except Exception as e:
-        logger.error(f"Firebase token verification failed in /sync-user: {str(e)}")
-        return jsonify({'success': False, 'error': f'Invalid or expired token: {str(e)}', 'data': None}), 401
+        logger.error("Firebase token verification failed in /sync-user: %s", str(e))
+        return jsonify({'success': False, 'error': 'Invalid or expired token: ' + str(e), 'data': None}), 401
 
     firebase_uid = decoded.get('uid')
     email = decoded.get('email', '')
@@ -103,7 +103,7 @@ def sync_user():
         return jsonify({'success': False, 'error': 'Token does not contain a valid user ID.', 'data': None}), 401
 
     is_empty = not any(profile_data.values())
-    logger.info(f"Incoming /sync-user Request Object | UID: {firebase_uid} | IsEmptyProfile: {is_empty} | Payload Keys: {list(profile_data.keys())}")
+    logger.info("Incoming /sync-user Request | UID: %s | IsEmptyProfile: %s", firebase_uid, is_empty)
 
     try:
         user, created = get_or_create_user(
@@ -115,7 +115,7 @@ def sync_user():
             location=profile_data.get('location')
         )
     except Exception as exc:
-        return jsonify({'success': False, 'error': f'User sync failed: {str(exc)}', 'data': None}), 500
+        return jsonify({'success': False, 'error': 'User sync failed: ' + str(exc), 'data': None}), 500
 
     return jsonify({
         'success': True,
