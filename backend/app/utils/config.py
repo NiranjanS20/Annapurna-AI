@@ -50,6 +50,14 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///app.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
+    # DB connection resilience — prevents Render Postgres idle disconnect failures
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,       # Test connections before use (detects stale connections)
+        'pool_recycle': 280,         # Recycle connections every ~5 min (Render idle timeout is ~5 min)
+        'pool_size': 5,              # Max persistent connections
+        'max_overflow': 10,          # Extra connections under load
+    }
+
     # Firebase — support both JSON file and environment variable
     FIREBASE_CREDENTIALS_PATH = os.environ.get(
         'FIREBASE_CREDENTIALS_PATH',
