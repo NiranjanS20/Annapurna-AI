@@ -135,4 +135,8 @@ def commit_changes(*models):
         if model is None:
             continue
         db.session.add(model)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        raise e
