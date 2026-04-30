@@ -44,13 +44,7 @@ export const uploadBillingCsv = async (file) => {
     const formData = new FormData();
     formData.append('file', file);
     
-    // Axios explicitly overrides the instance 'application/json' default when this is provided
-    // and naturally computes the correct form boundary.
-    const response = await api.post('/api/data/upload-csv', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    });
+    const response = await api.post('/api/data/upload-csv', formData);
     const body = response.data;
     
     return {
