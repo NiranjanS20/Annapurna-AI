@@ -86,7 +86,7 @@ def ensure_finalizable_fields(data):
     if pickup_start >= pickup_end:
         raise ValueError('pickup_end must be after pickup_start')
 
-
+#meta data configuration
 def transition_listing(listing, next_status, actor_user_id=None, metadata=None):
     current_status = listing.status
     validate_transition(current_status, next_status)
