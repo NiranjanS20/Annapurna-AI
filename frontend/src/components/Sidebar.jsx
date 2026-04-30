@@ -1,10 +1,14 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileTerminal, TrendingUp, BarChart2, BellRing, HeartHandshake } from 'lucide-react';
+import { LayoutDashboard, FileTerminal, TrendingUp, BarChart2, BellRing, HeartHandshake, MapPin, HandHeart, ClipboardList } from 'lucide-react';
 import { ROUTES } from '../utils/constants';
+import { useAuth } from '../context/AuthContext';
 
 const Sidebar = () => {
-  const menuItems = [
+  const { backendUser } = useAuth();
+  const role = backendUser?.role || 'canteen';
+
+  const canteenMenu = [
     { name: 'Dashboard', path: ROUTES.DASHBOARD, icon: <LayoutDashboard size={20} /> },
     { name: 'Data Entry', path: ROUTES.DATA_ENTRY, icon: <FileTerminal size={20} /> },
     { name: 'Prediction', path: ROUTES.PREDICTION, icon: <TrendingUp size={20} /> },
@@ -12,6 +16,14 @@ const Sidebar = () => {
     { name: 'Alerts', path: ROUTES.ALERTS, icon: <BellRing size={20} /> },
     { name: 'Donation', path: ROUTES.DONATION, icon: <HeartHandshake size={20} /> },
   ];
+
+  const ngoMenu = [
+    { name: 'NGO Dashboard', path: ROUTES.NGO_DASHBOARD, icon: <HandHeart size={20} /> },
+    { name: 'Nearby Donations', path: ROUTES.NGO_NEARBY, icon: <MapPin size={20} /> },
+    { name: 'Accepted', path: ROUTES.NGO_DASHBOARD, icon: <ClipboardList size={20} /> },
+  ];
+
+  const menuItems = role === 'ngo' ? ngoMenu : canteenMenu;
 
   return (
     <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 hidden md:flex flex-col h-full z-10 transition-colors duration-300">
