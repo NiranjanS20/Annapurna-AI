@@ -7,6 +7,9 @@ export const ROUTES = {
   ANALYTICS: '/analytics',
   ALERTS: '/alerts',
   DONATION: '/donation',
+  NGO_ONBOARDING: '/ngo/onboarding',
+  NGO_DASHBOARD: '/ngo/dashboard',
+  NGO_NEARBY: '/ngo/nearby',
 };
 
 export const COLORS = {
