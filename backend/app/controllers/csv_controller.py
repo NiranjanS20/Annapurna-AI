@@ -123,7 +123,7 @@ def process_csv_upload(file):
             )
             to_insert.append(log)
             # Store data to trigger alerts/donations after successful commit
-            alert_triggers.append((item_name, log_date, prepared_qty, sold_qty, waste_qty))
+            alert_triggers.append((log, prepared_qty, sold_qty, waste_qty))
             
             rows_processed += 1
 
@@ -132,8 +132,15 @@ def process_csv_upload(file):
             execute_transaction(*to_insert)
             
             # Fire business logic evaluating waste thresholds for each successful row
-            for t_item_name, t_log_date, t_prepared_qty, t_sold_qty, t_waste_qty in alert_triggers:
-                check_alerts_and_donations(t_item_name, t_log_date, t_prepared_qty, t_sold_qty, t_waste_qty)
+            for t_log, t_prepared_qty, t_sold_qty, t_waste_qty in alert_triggers:
+                check_alerts_and_donations(
+                    t_log.item_name,
+                    t_log.date,
+                    t_prepared_qty,
+                    t_sold_qty,
+                    t_waste_qty,
+                    t_log.id,
+                )
 
         return {
             "success": True,
