@@ -5,10 +5,7 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000',
 });
 
-// Remove default Content-Type so axios can set it properly for FormData
-
-// ── Request Interceptor ──────────────────────────────────────────────
-// Automatically attach the Firebase JWT token to every outgoing request.
+// Interceptor to attach Firebase token
 api.interceptors.request.use(
   async (config) => {
     try {
@@ -25,16 +22,35 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ── Response Interceptor ─────────────────────────────────────────────
-// Handle 401s globally (e.g. expired tokens).
+// Response interceptor: auto-refresh token on 401
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      console.warn('Unauthorized — token may be expired.');
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // If 401 and not already retried
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        const user = auth.currentUser;
+        if (user) {
+          // Force token refresh
+          const newToken = await user.getIdToken(true);
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return api(originalRequest);
+        }
+      } catch (refreshError) {
+        console.error('Token refresh failed:', refreshError);
+        // Logout user on refresh failure
+        try {
+          const { logout } = await import('./authService');
+          await logout();
+        } catch {}
+      }
     }
     
-    // Standardize error parser
+    // Standardize error
     const errMsg = error.response?.data?.error || error.response?.data?.message || error.message || 'Network Error';
     const wrapped = new Error(errMsg);
     wrapped.response = error.response;
