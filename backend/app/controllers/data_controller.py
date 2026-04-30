@@ -32,37 +32,81 @@ def add_menu_item(name, category="Custom"):
 def create_food_data(data):
     """
     Creates FoodData entry and triggers alert logic.
+    Includes session safety and thorough validation.
     """
     logger.info("Incoming data: %s", data)
-    print("Incoming data:", data)
 
+    # ── Validate required fields ──
     date = data.get('date')
-    day_of_week = data.get('day_of_week')
     item_name = data.get('item_name')
     meal_type = data.get('meal_type')
     prepared_qty = data.get('prepared_qty')
     sold_qty = data.get('sold_qty')
     waste_qty = data.get('waste_qty')
+    day_of_week = data.get('day_of_week')
 
-    # Validate required fields
-    if not all([date, item_name, meal_type, prepared_qty, sold_qty]):
-        raise ValueError("Missing required fields: date, item_name, meal_type, prepared_qty, or sold_qty")
+    missing = []
+    if not date:
+        missing.append('date')
+    if not item_name:
+        missing.append('item_name')
+    if not meal_type:
+        missing.append('meal_type')
+    if prepared_qty is None or prepared_qty == '':
+        missing.append('prepared_qty')
+    if sold_qty is None or sold_qty == '':
+        missing.append('sold_qty')
 
-    prepared_qty = float(prepared_qty)
-    sold_qty = float(sold_qty)
+    if missing:
+        raise ValueError(f"Missing required fields: {', '.join(missing)}")
 
-    log_date = datetime.strptime(date, '%Y-%m-%d').date()
+    # ── Numeric validation ──
+    try:
+        prepared_qty = float(prepared_qty)
+    except (TypeError, ValueError):
+        raise ValueError("prepared_qty must be a valid number")
+
+    try:
+        sold_qty = float(sold_qty)
+    except (TypeError, ValueError):
+        raise ValueError("sold_qty must be a valid number")
+
+    if prepared_qty < 0:
+        raise ValueError("prepared_qty cannot be negative")
+    if sold_qty < 0:
+        raise ValueError("sold_qty cannot be negative")
+
+    # ── Date parsing ──
+    try:
+        log_date = datetime.strptime(date, '%Y-%m-%d').date()
+    except (TypeError, ValueError):
+        raise ValueError("date must be in YYYY-MM-DD format")
 
     # Derive day_of_week if not provided
     if not day_of_week:
         day_of_week = log_date.strftime('%A')
 
     # Compute waste if not provided
-    if waste_qty is None:
+    if waste_qty is None or waste_qty == '':
         waste_qty = max(0, prepared_qty - sold_qty)
     else:
-        waste_qty = float(waste_qty)
+        try:
+            waste_qty = float(waste_qty)
+        except (TypeError, ValueError):
+            waste_qty = max(0, prepared_qty - sold_qty)
 
+    # Normalize item name
+    item_name = item_name.strip()
+    if not item_name:
+        raise ValueError("item_name cannot be empty")
+
+    # ── Session safety — clear any poisoned state ──
+    try:
+        db.session.rollback()
+    except Exception:
+        pass
+
+    # ── DB Insert ──
     try:
         log = FoodData(
             date=log_date,
@@ -77,8 +121,7 @@ def create_food_data(data):
         execute_transaction(log)
     except Exception as e:
         logger.error(f"DB ERROR in create_food_data: {str(e)}")
-        print("DB ERROR:", str(e))
-        raise Exception(f"DB ERROR: {str(e)}")
+        raise Exception(f"Database error: {str(e)}")
 
     # Trigger Alert & Donation Logic (non-blocking)
     try:
@@ -93,7 +136,7 @@ def check_alerts_and_donations(item_name, log_date, prep_qty, sold_qty, waste_qt
     """
     BUSINESS LOGIC
     - Overproduction: if prepared > predicted
-    - Waste: if waste > 10 (threshold)
+    - Waste: if waste > 0 (threshold)
     - Donation Trigger: if waste high, create donation
     """
     try:
