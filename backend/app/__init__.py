@@ -5,7 +5,7 @@ Creates and configures the Flask app with all extensions, blueprints, and servic
 
 import os
 import logging
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
@@ -61,7 +61,7 @@ def create_app(config_name=None):
 
     CORS(app, resources={r"/api/*": {
         "origins": cors_origins,
-        "allow_headers": ["Authorization", "Content-Type", "Idempotency-Key"],
+        "allow_headers": ["Authorization", "Content-Type", "Idempotency-Key", "X-Correlation-ID"],
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         "supports_credentials": True,
         "max_age": 600,
@@ -176,7 +176,6 @@ def create_app(config_name=None):
     # ------------------------------------------------------------------
     @app.before_request
     def log_request_info():
-        from flask import request
         if request.path.startswith('/api/'):
             logger.info('Incoming API Request: %s %s', request.method, request.path)
 
@@ -185,10 +184,19 @@ def create_app(config_name=None):
     # ------------------------------------------------------------------
     @app.errorhandler(Exception)
     def handle_global_error(e):
-        logger.error(f'Unhandled Exception: {e}')
-        # DO NOT expose internal Python error details fully to client in prod, 
-        # but for this specific request, the user wanted raw error string.
-        return jsonify({'success': False, 'error': str(e), 'data': None}), 500
+        correlation_id = request.headers.get('X-Correlation-ID', 'none')
+        logger.error('Unhandled Exception [corr=%s]: %s', correlation_id, e)
+        # In production, do NOT expose raw Python error details to clients
+        if app.debug:
+            error_msg = str(e)
+        else:
+            error_msg = 'An internal server error occurred. Please try again or contact support.'
+        return jsonify({
+            'success': False,
+            'error': error_msg,
+            'data': None,
+            'correlation_id': correlation_id,
+        }), 500
 
     @app.errorhandler(404)
     def not_found(e):
