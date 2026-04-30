@@ -11,7 +11,7 @@ class User(db.Model):
     business_name = db.Column(db.String(255), nullable=True)
     business_type = db.Column(db.String(100), nullable=True)
     location = db.Column(db.String(255), nullable=True)
-    role = db.Column(db.String(50), nullable=False, default='admin')
+    role = db.Column(db.String(50), nullable=False, default='canteen')
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     def to_dict(self):
