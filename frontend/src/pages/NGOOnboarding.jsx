@@ -22,8 +22,8 @@ const NGOOnboarding = () => {
   useEffect(() => {
     const checkProfile = async () => {
       try {
-        const existing = await getNgoProfile();
-        if (existing) {
+        const existingResponse = await getNgoProfile();
+        if (existingResponse.success && existingResponse.data) {
           navigate(ROUTES.NGO_DASHBOARD, { replace: true });
         }
       } catch {
@@ -58,12 +58,16 @@ const NGOOnboarding = () => {
     setLoading(true);
     setError('');
     try {
-      await saveNgoProfile({
+      const result = await saveNgoProfile({
         ...form,
         service_radius_km: Number(form.service_radius_km),
         base_lat: location.lat,
         base_lng: location.lng,
       });
+      if (!result.success) {
+        setError(result.message || 'Failed to save NGO profile.');
+        return;
+      }
       navigate(ROUTES.NGO_DASHBOARD);
     } catch (err) {
       setError(err.message || 'Failed to save NGO profile.');
