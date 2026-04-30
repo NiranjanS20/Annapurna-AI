@@ -6,7 +6,7 @@ Manages food_data and menu_items.
 import logging
 from datetime import datetime
 from sqlalchemy import or_
-from flask import g
+from flask import g, current_app
 
 from app import db
 from app.utils.db_transaction import execute_transaction
@@ -15,6 +15,8 @@ from app.models.food_data import FoodData
 from app.models.prediction import Prediction
 from app.models.alert import Alert
 from app.models.donation import Donation
+from app.models.donation_listing import DonationListing
+from app.controllers.prediction_controller import get_unit_for_item
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +139,19 @@ def check_alerts_and_donations(item_name, log_date, prep_qty, sold_qty, waste_qt
                 user_id=g.current_user.id
             )
             to_insert.append(donation)
+
+            if current_app.config.get('FEATURE_DONATION_V2', True):
+                listing = DonationListing(
+                    canteen_id=g.current_user.id,
+                    user_id=g.current_user.id,
+                    item_name=item_name,
+                    category=None,
+                    quantity=waste_qty,
+                    unit=get_unit_for_item(item_name),
+                    waste_context='manual',
+                    status='draft',
+                )
+                to_insert.append(listing)
 
         if to_insert:
             execute_transaction(*to_insert)
