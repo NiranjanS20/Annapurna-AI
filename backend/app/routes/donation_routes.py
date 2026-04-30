@@ -1,6 +1,6 @@
 import logging
 from flask import Blueprint, request, jsonify
-from app.controllers.donation_controller import get_donations, create_donation
+from app.controllers.donation_controller import get_donations, create_donation, get_donation_for_user
 from app.controllers.donation_listing_controller import (
     get_canteen_listings,
     get_listing_for_canteen,
@@ -8,6 +8,7 @@ from app.controllers.donation_listing_controller import (
     finalize_listing,
     schedule_pickup,
     complete_listing,
+    convert_donation_to_listing,
 )
 from app.middleware.auth_middleware import firebase_auth_required, role_required
 from flask import current_app
@@ -54,6 +55,26 @@ def mark(donation_id):
         return jsonify({'success': False, 'error': str(e), 'data': None}), 404
     except Exception as e:
         logger.error(f'Donation marking error: {e}')
+        return jsonify({'success': False, 'error': 'Internal Server Error', 'data': None}), 500
+
+
+@donation_bp.route('/<int:donation_id>/convert', methods=['POST'])
+@firebase_auth_required
+@role_required('canteen', 'admin')
+def convert(donation_id):
+    if not _donation_v2_enabled():
+        return jsonify({'success': False, 'error': 'Donation v2 is disabled.', 'data': None}), 404
+    try:
+        donation = get_donation_for_user(donation_id)
+        if not donation:
+            return jsonify({'success': False, 'error': 'Donation not found', 'data': None}), 404
+        data = request.json or {}
+        listing = convert_donation_to_listing(donation, data)
+        return jsonify({'success': True, 'data': listing}), 201
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e), 'data': None}), 400
+    except Exception as e:
+        logger.error(f'Donation conversion error: {e}')
         return jsonify({'success': False, 'error': 'Internal Server Error', 'data': None}), 500
 
 
