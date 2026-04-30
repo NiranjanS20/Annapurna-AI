@@ -68,6 +68,16 @@ class Config:
     COOKING_BUFFER = float(os.environ.get('COOKING_BUFFER', '1.1'))
     WASTE_DONATION_THRESHOLD = float(os.environ.get('WASTE_DONATION_THRESHOLD', '5'))
 
+    # Feature flags (safe rollout)
+    FEATURE_DONATION_V2 = os.environ.get('FEATURE_DONATION_V2', 'true').lower() == 'true'
+    FEATURE_NGO = os.environ.get('FEATURE_NGO', 'true').lower() == 'true'
+    FEATURE_SSE = os.environ.get('FEATURE_SSE', 'true').lower() == 'true'
+
+    # Donation/NGO defaults
+    NGO_DEFAULT_RADIUS_KM = float(os.environ.get('NGO_DEFAULT_RADIUS_KM', '8'))
+    NGO_DEFAULT_SPEED_KMH = float(os.environ.get('NGO_DEFAULT_SPEED_KMH', '25'))
+    DONATION_LISTING_EXPIRY_HOURS = float(os.environ.get('DONATION_LISTING_EXPIRY_HOURS', '6'))
+
     # Fix Heroku/Railway postgres URI scheme
     if SQLALCHEMY_DATABASE_URI and SQLALCHEMY_DATABASE_URI.startswith('postgres://'):
         SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace('postgres://', 'postgresql://', 1)
