@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 stream_bp = Blueprint('stream', __name__)
 
-
+#for stream routing
 def _sse_enabled():
     return current_app.config.get('FEATURE_SSE', True)
 
