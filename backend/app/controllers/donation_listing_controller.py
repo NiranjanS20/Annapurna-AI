@@ -72,11 +72,22 @@ def create_listing(data):
         db.session.add(listing)
         log_audit_event(listing.id, 'created', actor_user_id=g.current_user.id, to_status=listing.status)
 
-        notifications = []
-        if status == 'available':
-            notifications = _notify_nearby_ngos(listing)
+        # Commit listing FIRST — this is the critical operation
+        commit_changes(listing)
 
-        commit_changes(listing, *notifications)
+        # NGO notification is a SIDE EFFECT — must never block listing creation
+        if status == 'available':
+            try:
+                notifications = _notify_nearby_ngos(listing)
+                if notifications:
+                    commit_changes(*notifications)
+            except Exception as notify_err:
+                import logging
+                logging.getLogger(__name__).error(
+                    'NGO notification failed (non-blocking) for listing %s: %s',
+                    listing.id, notify_err
+                )
+
         return listing.to_dict()
     except ValueError as e:
         db.session.rollback()
@@ -123,9 +134,22 @@ def convert_donation_to_listing(donation, data):
         db.session.add(donation)
 
         log_audit_event(listing.id, 'created', actor_user_id=g.current_user.id, to_status=listing.status)
-        notifications = _notify_nearby_ngos(listing)
 
-        commit_changes(listing, donation, *notifications)
+        # Commit listing + donation FIRST
+        commit_changes(listing, donation)
+
+        # NGO notification is non-blocking
+        try:
+            notifications = _notify_nearby_ngos(listing)
+            if notifications:
+                commit_changes(*notifications)
+        except Exception as notify_err:
+            import logging
+            logging.getLogger(__name__).error(
+                'NGO notification failed (non-blocking) for converted listing %s: %s',
+                listing.id, notify_err
+            )
+
         return listing.to_dict()
     except ValueError as e:
         db.session.rollback()
@@ -154,8 +178,21 @@ def finalize_listing(listing, data):
 
         transition_listing(listing, 'available', actor_user_id=g.current_user.id)
 
-        notifications = _notify_nearby_ngos(listing)
-        commit_changes(listing, *notifications)
+        # Commit listing FIRST
+        commit_changes(listing)
+
+        # NGO notification is non-blocking
+        try:
+            notifications = _notify_nearby_ngos(listing)
+            if notifications:
+                commit_changes(*notifications)
+        except Exception as notify_err:
+            import logging
+            logging.getLogger(__name__).error(
+                'NGO notification failed (non-blocking) for finalized listing %s: %s',
+                listing.id, notify_err
+            )
+
         return listing.to_dict()
     except ValueError as e:
         db.session.rollback()
