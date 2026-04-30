@@ -5,7 +5,7 @@ import { logout } from '../services/authService';
 import ThemeToggle from './ThemeToggle';
 
 const Navbar = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, backendUser } = useAuth();
 
   const handleLogout = async () => {
     try {
@@ -28,9 +28,10 @@ const Navbar = () => {
           <div className="bg-blue-50 dark:bg-blue-900/30 p-2 rounded-full border border-blue-100 dark:border-blue-800">
             <User size={18} className="text-blue-600 dark:text-blue-400" />
           </div>
-          <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
-            {currentUser?.email || 'User'}
-          </span>
+          <div className="text-sm font-medium text-gray-600 dark:text-gray-300">
+            <div>{currentUser?.email || 'User'}</div>
+            <div className="text-xs text-gray-400">{backendUser?.role || 'canteen'}</div>
+          </div>
         </div>
         
         <button 
