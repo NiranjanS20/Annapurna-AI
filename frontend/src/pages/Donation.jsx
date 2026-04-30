@@ -215,6 +215,11 @@ const Donation = () => {
       return;
     }
 
+    if (new Date(form.pickup_start) >= new Date(form.pickup_end)) {
+      setError('Expiry date must be after publish date.');
+      return;
+    }
+
     if (!location?.lat || !location?.lng) {
       setError('Pickup location is required. Please allow GPS or select on the map.');
       return;
@@ -284,6 +289,18 @@ const Donation = () => {
     setSaving(true);
     setError('');
 
+    if (!location?.lat || !location?.lng) {
+      setError('Pickup location is required. Please allow GPS or select on the map.');
+      setSaving(false);
+      return;
+    }
+
+    if (new Date(form.pickup_start) >= new Date(form.pickup_end)) {
+      setError('Expiry date must be after publish date.');
+      setSaving(false);
+      return;
+    }
+
     try {
       const result = await createDonationListing({
         ...form,
@@ -317,6 +334,16 @@ const Donation = () => {
   const handleFinalizeDraft = async (listingId) => {
     setSaving(true);
     setError('');
+    if (!location?.lat || !location?.lng) {
+      setError('Pickup location is required. Please allow GPS or select on the map.');
+      setSaving(false);
+      return;
+    }
+    if (new Date(form.pickup_start) >= new Date(form.pickup_end)) {
+      setError('Expiry date must be after publish date.');
+      setSaving(false);
+      return;
+    }
     try {
       const result = await finalizeDonationListing(listingId, {
         pickup_start: form.pickup_start,
@@ -414,10 +441,29 @@ const Donation = () => {
               <input name="unit" value={form.unit} onChange={handleFormChange} className="dash-input" placeholder="Unit (kg, plates, etc.)" />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <input name="pickup_start" type="datetime-local" value={form.pickup_start} onChange={handleFormChange} className="dash-input" required />
-              <input name="pickup_end" type="datetime-local" value={form.pickup_end} onChange={handleFormChange} className="dash-input" required />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Available From</label>
+                <input
+                  name="pickup_start"
+                  type="datetime-local"
+                  value={form.pickup_start}
+                  onChange={handleFormChange}
+                  className="dash-input"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Available Until</label>
+                <input
+                  name="pickup_end"
+                  type="datetime-local"
+                  value={form.pickup_end}
+                  onChange={handleFormChange}
+                  className="dash-input"
+                  required
+                />
+              </div>
             </div>
-            <input name="expires_at" type="datetime-local" value={form.expires_at} onChange={handleFormChange} className="dash-input" placeholder="Expiry (optional)" />
             <input name="address" value={form.address} onChange={handleFormChange} className="dash-input" placeholder="Pickup address" required />
             <textarea name="notes" value={form.notes} onChange={handleFormChange} className="dash-input min-h-[90px]" placeholder="Notes for NGO (optional)" />
             <p className="text-xs text-gray-500 dark:text-gray-400">Visibility: NGOs see listings based on their service radius.</p>
@@ -433,9 +479,9 @@ const Donation = () => {
               <span className="text-sm font-medium">Pickup Location</span>
             </div>
             <MapView
-              center={location}
+              center={location || undefined}
               selectable
-              markers={[{ id: 'pickup', lat: location.lat, lng: location.lng, label: 'Pickup' }]}
+              markers={location ? [{ id: 'pickup', lat: location.lat, lng: location.lng, label: 'Pickup' }] : []}
               onSelect={handleLocationSelect}
               height="300px"
             />
