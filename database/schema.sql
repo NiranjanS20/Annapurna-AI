@@ -99,6 +99,8 @@ CREATE TABLE IF NOT EXISTS donation_listings (
     quantity NUMERIC(10, 2) NOT NULL CHECK (quantity >= 0),
     unit VARCHAR(30) NOT NULL DEFAULT 'units',
     waste_context VARCHAR(50),
+    notes TEXT,
+    source_food_data_id INTEGER REFERENCES food_data(id),
     pickup_start TIMESTAMPTZ,
     pickup_end TIMESTAMPTZ,
     lat NUMERIC(9, 6),
@@ -115,6 +117,7 @@ CREATE INDEX IF NOT EXISTS idx_donation_listings_canteen_id ON donation_listings
 CREATE INDEX IF NOT EXISTS idx_donation_listings_user_id ON donation_listings (user_id);
 CREATE INDEX IF NOT EXISTS idx_donation_listings_status ON donation_listings (status);
 CREATE INDEX IF NOT EXISTS idx_donation_listings_expires_at ON donation_listings (expires_at);
+CREATE INDEX IF NOT EXISTS idx_donation_listings_source_food_data_id ON donation_listings (source_food_data_id);
 
 -- 9. donation_acceptances
 CREATE TABLE IF NOT EXISTS donation_acceptances (
