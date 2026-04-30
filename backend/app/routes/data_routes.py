@@ -51,6 +51,8 @@ def upload_csv():
             'rows_inserted': result['rows_inserted'],
             'skipped_duplicates': result.get('skipped_duplicates', 0),
             'skipped_invalid': result.get('skipped_invalid', 0),
+            'duration_ms': result.get('duration_ms'),
+            'parsing_errors': result.get('parsing_errors', []),
             'message': message,
             'data': None
         }), 200
