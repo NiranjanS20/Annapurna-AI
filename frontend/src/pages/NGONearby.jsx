@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, RefreshCw, Loader2, HandHeart } from 'lucide-react';
 import MapView from '../components/MapView';
-import { getNgoNearbyDonations, acceptDonation, getNgoProfile } from '../services/donationService';
+import { getNearbyDonations, acceptDonation, getNgoProfile } from '../services/donationService';
 import { ROUTES } from '../utils/constants';
 
 const NGONearby = () => {
@@ -14,14 +14,14 @@ const NGONearby = () => {
   const loadNearby = async () => {
     setLoading(true);
     try {
-      const profile = await getNgoProfile();
-      if (!profile) {
+      const profileResponse = await getNgoProfile();
+      if (!profileResponse.success || !profileResponse.data) {
         navigate(ROUTES.NGO_ONBOARDING, { replace: true });
         setLoading(false);
         return;
       }
-      const results = await getNgoNearbyDonations();
-      setDonations(results);
+      const resultsResponse = await getNearbyDonations();
+      setDonations(resultsResponse.data || []);
     } catch (err) {
       console.warn('Failed to load nearby donations', err);
     } finally {
@@ -37,7 +37,11 @@ const NGONearby = () => {
     setAcceptingId(id);
     try {
       const key = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${id}`;
-      await acceptDonation(id, key);
+      const result = await acceptDonation(id, { idempotencyKey: key });
+      if (!result.success) {
+        console.warn(result.message || 'Accept failed');
+        return;
+      }
       await loadNearby();
     } catch (err) {
       console.warn('Accept failed', err);
