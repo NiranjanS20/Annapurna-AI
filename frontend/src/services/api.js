@@ -11,6 +11,10 @@ if (!import.meta.env.VITE_API_BASE_URL && import.meta.env.PROD) {
   );
 }
 
+// ── Correlation ID generator ─────────────────────────────────────────
+const generateCorrelationId = () =>
+  `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
 const api = axios.create({
   baseURL: API_BASE,
   timeout: 20000, // 20s default timeout
@@ -22,8 +26,12 @@ const api = axios.create({
 // ── Request Interceptor ──────────────────────────────────────────────
 // 1. Attach Firebase JWT token to every outgoing request
 // 2. Detect FormData and remove Content-Type so browser sets multipart boundary
+// 3. Attach correlation ID for request tracing
 api.interceptors.request.use(
   async (config) => {
+    // Correlation ID for request tracing across frontend/backend
+    config.headers['X-Correlation-ID'] = generateCorrelationId();
+
     // CRITICAL FIX: FormData must NOT have Content-Type: application/json
     // Browser needs to set multipart/form-data with the correct boundary
     if (config.data instanceof FormData) {
@@ -47,6 +55,47 @@ api.interceptors.request.use(
   },
   (error) => Promise.reject(error)
 );
+
+// ── Normalize API Error ──────────────────────────────────────────────
+// Centralised error normalisation for user-facing display + telemetry
+export const normalizeApiError = (error) => {
+  let errMsg = 'An unexpected error occurred.';
+  let errCode = 'UNKNOWN';
+  const correlationId = error.config?.headers?.['X-Correlation-ID'] || null;
+
+  if (error.code === 'ECONNABORTED') {
+    errMsg = 'Request timed out. Please check your connection and try again.';
+    errCode = 'TIMEOUT';
+  } else if (!error.response) {
+    errMsg = 'Network error. Please check your internet connection or try again later.';
+    errCode = 'NETWORK';
+  } else {
+    const status = error.response.status;
+    const serverMsg = error.response?.data?.error || error.response?.data?.message;
+
+    if (serverMsg) {
+      errMsg = serverMsg;
+    } else if (status === 401) {
+      errMsg = 'Session expired. Please sign in again.';
+    } else if (status === 403) {
+      errMsg = 'You do not have permission to perform this action.';
+    } else if (status === 404) {
+      errMsg = 'The requested resource was not found.';
+    } else if (status === 408) {
+      errMsg = 'Upload is taking longer than expected. Please try again.';
+    } else if (status === 413) {
+      errMsg = 'File is too large. Please reduce file size and try again.';
+    } else if (status === 422) {
+      errMsg = 'Validation error. Please check your input.';
+    } else if (status >= 500) {
+      errMsg = 'Server error. Please try again in a moment.';
+    }
+
+    errCode = `HTTP_${status}`;
+  }
+
+  return { message: errMsg, code: errCode, correlationId };
+};
 
 // ── Response Interceptor ─────────────────────────────────────────────
 // 1. Handle 401s with automatic token refresh + retry (once)
@@ -74,35 +123,14 @@ api.interceptors.response.use(
     }
 
     // ── Normalize error messages ──
-    let errMsg = 'An unexpected error occurred.';
+    const normalized = normalizeApiError(error);
 
-    if (error.code === 'ECONNABORTED') {
-      errMsg = 'Request timed out. Please check your connection and try again.';
-    } else if (!error.response) {
-      errMsg = 'Network error. Please check your internet connection or try again later.';
-    } else {
-      const status = error.response.status;
-      const serverMsg = error.response?.data?.error || error.response?.data?.message;
-
-      if (serverMsg) {
-        errMsg = serverMsg;
-      } else if (status === 401) {
-        errMsg = 'Session expired. Please sign in again.';
-      } else if (status === 403) {
-        errMsg = 'You do not have permission to perform this action.';
-      } else if (status === 404) {
-        errMsg = 'The requested resource was not found.';
-      } else if (status === 413) {
-        errMsg = 'File is too large. Please reduce file size and try again.';
-      } else if (status >= 500) {
-        errMsg = 'Server error. Please try again in a moment.';
-      }
-    }
-
-    const wrapped = new Error(errMsg);
+    const wrapped = new Error(normalized.message);
     wrapped.response = error.response;
     wrapped.status = error.response?.status;
     wrapped.code = error.code;
+    wrapped.correlationId = normalized.correlationId;
+    wrapped.errorCode = normalized.code;
     return Promise.reject(wrapped);
   }
 );
