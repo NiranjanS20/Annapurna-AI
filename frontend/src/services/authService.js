@@ -55,19 +55,33 @@ export const deleteCurrentUser = async () => {
  * @returns {Promise<{success: boolean, user: object, isNewUser: boolean}>}
  */
 export const syncUser = async (idToken, profile = {}) => {
-  const response = await fetch(`${API_BASE_URL}/api/auth/sync-user`, {
-    method: 'POST',
-    headers: { 
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${idToken}`
-    },
-    body: JSON.stringify({ profile }),
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/auth/sync-user`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`
+      },
+      body: JSON.stringify({ profile }),
+    });
+  } catch (error) {
+    const err = new Error('Network error during backend sync.');
+    err.isNetworkError = true;
+    throw err;
+  }
 
-  const data = await response.json();
+  let data = {};
+  try {
+    data = await response.json();
+  } catch {
+    data = {};
+  }
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || data.message || 'Backend user sync failed.');
+    const err = new Error(data.error || data.message || 'Backend user sync failed.');
+    err.status = response.status;
+    throw err;
   }
 
   return data; // { success, user, isNewUser }
@@ -99,14 +113,29 @@ export const checkUserExists = async (email) => {
  * Fetches the current logged in user from backend without creating a new one.
  */
 export const getCurrentUser = async (idToken) => {
-  const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
-    headers: { 'Authorization': `Bearer ${idToken}` }
-  });
-  
-  if (!response.ok) {
-    throw new Error('User not found in backend.');
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+      headers: { 'Authorization': `Bearer ${idToken}` }
+    });
+  } catch (error) {
+    const err = new Error('Network error during backend user fetch.');
+    err.isNetworkError = true;
+    throw err;
   }
-  
-  const data = await response.json();
+
+  let data = {};
+  try {
+    data = await response.json();
+  } catch {
+    data = {};
+  }
+
+  if (!response.ok) {
+    const err = new Error(data.error || data.message || 'User not found in backend.');
+    err.status = response.status;
+    throw err;
+  }
+
   return data;
 };
