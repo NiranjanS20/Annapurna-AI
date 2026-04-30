@@ -51,6 +51,10 @@ def process_csv_upload(file):
         
         required_cols = ['date', 'item_name', 'quantity_sold']
         headers = csv_reader.fieldnames or []
+        headers = [h.strip() for h in headers]
+        if headers and headers[0].startswith('\ufeff'):
+            headers[0] = headers[0].replace('\ufeff', '')
+        csv_reader.fieldnames = headers
         
         # Validate columns
         if not all(col in headers for col in required_cols):
@@ -60,72 +64,83 @@ def process_csv_upload(file):
         alert_triggers = []
         rows_processed = 0
         skipped_duplicates = 0
+        skipped_invalid = 0
 
         for row in csv_reader:
             # Skip completely empty rows
             if not any(row.values()):
                 continue
 
-            # 1. Normalization
-            date_str = row['date'].strip()
-            item_name = row['item_name'].strip().title()
-            
             try:
-                sold_qty = float(row['quantity_sold'].strip() or 0)
-            except ValueError:
-                sold_qty = 0.0
-            
-            # 2. Derived fields
-            try:
-                log_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            except ValueError:
-                # If date is invalid format, skip or error out
-                raise ValueError(f"Invalid date format for '{date_str}'. Expected YYYY-MM-DD.")
+                # 1. Normalization
+                date_str = (row.get('date') or '').strip()
+                item_name = (row.get('item_name') or '').strip().title()
+                quantity_sold_raw = (row.get('quantity_sold') or '').strip()
 
-            day_of_week = log_date.strftime('%A')
-            
-            # Try extracting optional prepared_qty
-            raw_prepared = row.get('prepared_qty')
-            if raw_prepared and raw_prepared.strip():
+                if not date_str or not item_name or quantity_sold_raw == '':
+                    skipped_invalid += 1
+                    continue
+
                 try:
-                    prepared_qty = float(raw_prepared.strip())
+                    sold_qty = float(quantity_sold_raw)
                 except ValueError:
+                    skipped_invalid += 1
+                    continue
+
+                # 2. Derived fields
+                try:
+                    log_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+                except ValueError:
+                    skipped_invalid += 1
+                    continue
+
+                day_of_week = log_date.strftime('%A')
+
+                # Try extracting optional prepared_qty
+                raw_prepared = row.get('prepared_qty')
+                if raw_prepared and raw_prepared.strip():
+                    try:
+                        prepared_qty = float(raw_prepared.strip())
+                    except ValueError:
+                        prepared_qty = sold_qty
+                else:
+                    # Fallback assumption
                     prepared_qty = sold_qty
-            else:
-                # Fallback assumption
-                prepared_qty = sold_qty
 
-            waste_qty = max(0.0, prepared_qty - sold_qty)
-            
-            # Map item properly via strict categorization, defaulting safely to 'Other'
-            meal_type = PRESET_CATEGORIES.get(item_name, "Other")
+                waste_qty = max(0.0, prepared_qty - sold_qty)
 
-            # 4. Duplicate Protection
-            # Check if record already exists for this date, item AND user
-            exists = FoodData.query.filter_by(
-                date=log_date, 
-                item_name=item_name, 
-                user_id=g.current_user.id
-            ).first()
-            if exists:
-                skipped_duplicates += 1
+                # Map item properly via strict categorization, defaulting safely to 'Other'
+                meal_type = PRESET_CATEGORIES.get(item_name, "Other")
+
+                # 4. Duplicate Protection
+                # Check if record already exists for this date, item AND user
+                exists = FoodData.query.filter_by(
+                    date=log_date,
+                    item_name=item_name,
+                    user_id=g.current_user.id
+                ).first()
+                if exists:
+                    skipped_duplicates += 1
+                    continue
+
+                log = FoodData(
+                    date=log_date,
+                    day_of_week=day_of_week,
+                    item_name=item_name,
+                    meal_type=meal_type,
+                    prepared_qty=prepared_qty,
+                    sold_qty=sold_qty,
+                    waste_qty=waste_qty,
+                    user_id=g.current_user.id
+                )
+                to_insert.append(log)
+                # Store data to trigger alerts/donations after successful commit
+                alert_triggers.append((log, prepared_qty, sold_qty, waste_qty))
+
+                rows_processed += 1
+            except Exception:
+                skipped_invalid += 1
                 continue
-
-            log = FoodData(
-                date=log_date,
-                day_of_week=day_of_week,
-                item_name=item_name,
-                meal_type=meal_type,
-                prepared_qty=prepared_qty,
-                sold_qty=sold_qty,
-                waste_qty=waste_qty,
-                user_id=g.current_user.id
-            )
-            to_insert.append(log)
-            # Store data to trigger alerts/donations after successful commit
-            alert_triggers.append((log, prepared_qty, sold_qty, waste_qty))
-            
-            rows_processed += 1
 
         # 5. Insert & Trigger logic
         if to_insert:
@@ -145,7 +160,8 @@ def process_csv_upload(file):
         return {
             "success": True,
             "rows_inserted": len(to_insert),
-            "skipped_duplicates": skipped_duplicates
+            "skipped_duplicates": skipped_duplicates,
+            "skipped_invalid": skipped_invalid,
         }
 
     except ValueError as val_err:
