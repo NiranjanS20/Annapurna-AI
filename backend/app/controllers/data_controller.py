@@ -80,8 +80,12 @@ def create_food_data(data):
         print("DB ERROR:", str(e))
         raise Exception(f"DB ERROR: {str(e)}")
 
-    # Trigger Alert & Donation Logic
-    check_alerts_and_donations(item_name, log_date, prepared_qty, sold_qty, waste_qty, log.id)
+    # Trigger Alert & Donation Logic (non-blocking)
+    try:
+        check_alerts_and_donations(item_name, log_date, prepared_qty, sold_qty, waste_qty, log.id)
+    except Exception as alert_err:
+        logger.error("Alert/Donation trigger error (non-blocking): %s", alert_err)
+        # Don't fail the main request if alerts/donations fail
 
     return log.to_dict()
 
