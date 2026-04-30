@@ -81,11 +81,11 @@ def create_food_data(data):
         raise Exception(f"DB ERROR: {str(e)}")
 
     # Trigger Alert & Donation Logic
-    check_alerts_and_donations(item_name, log_date, prepared_qty, sold_qty, waste_qty)
+    check_alerts_and_donations(item_name, log_date, prepared_qty, sold_qty, waste_qty, log.id)
 
     return log.to_dict()
 
-def check_alerts_and_donations(item_name, log_date, prep_qty, sold_qty, waste_qty):
+def check_alerts_and_donations(item_name, log_date, prep_qty, sold_qty, waste_qty, log_id=None):
     """
     BUSINESS LOGIC
     - Overproduction: if prepared > predicted
@@ -150,6 +150,7 @@ def check_alerts_and_donations(item_name, log_date, prep_qty, sold_qty, waste_qt
                     unit=get_unit_for_item(item_name),
                     waste_context='manual',
                     status='draft',
+                    source_food_data_id=log_id,
                 )
                 to_insert.append(listing)
 
