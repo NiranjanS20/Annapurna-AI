@@ -11,7 +11,7 @@ class DonationAuditLog(db.Model):
     event_type = db.Column(db.String(50), nullable=False)
     from_status = db.Column(db.String(50), nullable=True)
     to_status = db.Column(db.String(50), nullable=True)
-    metadata = db.Column(db.JSON, nullable=True)
+    metadata = db.Column("metadata", db.JSON, nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     def to_dict(self):
