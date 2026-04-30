@@ -89,7 +89,8 @@ def get_user_only(firebase_uid, email=None):
 
 
 def get_or_create_user(firebase_uid, email=None, full_name=None,
-                       business_name=None, business_type=None, location=None):
+                       business_name=None, business_type=None, location=None,
+                       role=None):
     """
     UPSERT strategy using PostgreSQL 'ON CONFLICT DO UPDATE'.
     Eliminates race conditions where two parallel requests attempt to create the user.
@@ -101,13 +102,10 @@ def get_or_create_user(firebase_uid, email=None, full_name=None,
         business_name=business_name,
         business_type=business_type,
         location=location,
-        role='admin'
+        role=role or 'canteen'
     )
 
-    update_dict = {
-        "firebase_uid": firebase_uid,
-        "email": email
-    }
+    update_dict = {}
     if email:
         update_dict['email'] = db.func.coalesce(stmt.excluded.email, User.email)
     if full_name:
@@ -118,15 +116,17 @@ def get_or_create_user(firebase_uid, email=None, full_name=None,
         update_dict['business_type'] = db.func.coalesce(stmt.excluded.business_type, User.business_type)
     if location:
         update_dict['location'] = db.func.coalesce(stmt.excluded.location, User.location)
+    if role:
+        update_dict['role'] = db.func.coalesce(stmt.excluded.role, User.role)
 
     if update_dict:
         stmt = stmt.on_conflict_do_update(
-            index_elements=['email'],
+            index_elements=['firebase_uid'],
             set_=update_dict
         )
     else:
         stmt = stmt.on_conflict_do_nothing(
-            index_elements=['email']
+            index_elements=['firebase_uid']
         )
 
     try:
