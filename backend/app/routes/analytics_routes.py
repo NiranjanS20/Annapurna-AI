@@ -18,4 +18,4 @@ def dashboard():
     except Exception as e:
         logger.error(f'Dashboard fetch error: {e}')
         print("ERROR in analytics endpoint:", str(e))
-        return jsonify({'success': False, 'message': 'Internal Server Error'}), 500
+        return jsonify({'success': False, 'error': 'Failed to load dashboard data. Please try again.', 'data': None}), 500
