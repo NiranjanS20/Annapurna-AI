@@ -33,10 +33,9 @@ const Donation = () => {
     pickup_start: '',
     pickup_end: '',
     address: '',
-    expires_at: '',
     notes: '',
   });
-  const [location, setLocation] = useState({ lat: 22.9734, lng: 78.6569 });
+  const [location, setLocation] = useState(null);
 
   const COORDS_CACHE_KEY = 'annapurna.pickup.coords';
   const ADDRESS_CACHE_KEY = 'annapurna.pickup.address';
@@ -216,6 +215,11 @@ const Donation = () => {
       return;
     }
 
+    if (!location?.lat || !location?.lng) {
+      setError('Pickup location is required. Please allow GPS or select on the map.');
+      return;
+    }
+
     setSaving(true);
     const meta = getItemMeta(item.item_name);
     const payload = {
@@ -227,7 +231,6 @@ const Donation = () => {
       category: meta.category || form.category,
       unit: meta.unit || form.unit,
       notes: form.notes,
-      expires_at: form.expires_at,
     };
 
     const result = await convertDonationToListing(item.id, payload);
@@ -285,8 +288,8 @@ const Donation = () => {
       const result = await createDonationListing({
         ...form,
         quantity: Number(form.quantity),
-        lat: location.lat,
-        lng: location.lng,
+        lat: location?.lat,
+        lng: location?.lng,
         status: 'available',
       });
       if (!result.success) {
@@ -301,7 +304,6 @@ const Donation = () => {
         pickup_start: '',
         pickup_end: '',
         address: '',
-        expires_at: '',
         notes: '',
       });
       await refreshListings();
@@ -319,10 +321,9 @@ const Donation = () => {
       const result = await finalizeDonationListing(listingId, {
         pickup_start: form.pickup_start,
         pickup_end: form.pickup_end,
-        lat: location.lat,
-        lng: location.lng,
+        lat: location?.lat,
+        lng: location?.lng,
         address: form.address,
-        expires_at: form.expires_at,
         notes: form.notes,
       });
       if (!result.success) {
