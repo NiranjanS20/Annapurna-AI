@@ -149,6 +149,22 @@ export const markDonation = async (id) => {
   }
 };
 
+export const convertDonationToListing = async (id, payload) => {
+  try {
+    const response = await api.post(`/api/donations/${id}/convert`, payload);
+    const body = response.data;
+    return {
+      success: body.success ?? true,
+      message: body.message || 'Donation converted to listing.',
+      data: body.data || null,
+    };
+  } catch (error) {
+    console.error('Error converting donation to listing:', error);
+    const errMsg = error.response?.data?.error || error.message || 'Failed to convert donation.';
+    return { success: false, message: errMsg, data: null };
+  }
+};
+
 // ── Analytics ────────────────────────────────────────────────────────
 
 export const getAnalyticsData = async () => {
