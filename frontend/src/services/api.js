@@ -2,11 +2,10 @@ import axios from 'axios';
 import { auth } from './authService';
 
 const api = axios.create({
-  baseURL: "https://annapurna-ai-6dih.onrender.com" ,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000',
 });
+
+// Remove default Content-Type so axios can set it properly for FormData
 
 // ── Request Interceptor ──────────────────────────────────────────────
 // Automatically attach the Firebase JWT token to every outgoing request.
@@ -37,7 +36,10 @@ api.interceptors.response.use(
     
     // Standardize error parser
     const errMsg = error.response?.data?.error || error.response?.data?.message || error.message || 'Network Error';
-    return Promise.reject(new Error(errMsg));
+    const wrapped = new Error(errMsg);
+    wrapped.response = error.response;
+    wrapped.status = error.response?.status;
+    return Promise.reject(wrapped);
   }
 );
 
