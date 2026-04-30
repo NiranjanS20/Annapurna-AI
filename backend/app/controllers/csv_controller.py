@@ -1,4 +1,5 @@
 import csv
+import time
 import logging
 from io import StringIO
 from datetime import datetime
@@ -42,13 +43,24 @@ PRESET_CATEGORIES = {
 }
 
 MAX_CSV_ROWS = 5000
+MAX_CSV_SIZE_BYTES = 5 * 1024 * 1024  # 5 MB
+
 
 def process_csv_upload(file):
     """
     Parses CSV and inserts rows into food_data. Row-level error handling.
+    Returns stats including duration_ms for observability.
     """
+    start_time = time.time()
     parsing_errors = []
     try:
+        # ── File size check ──
+        file.seek(0, 2)  # Seek to end
+        file_size = file.tell()
+        file.seek(0)     # Seek back to start
+        if file_size > MAX_CSV_SIZE_BYTES:
+            raise ValueError(f"CSV file exceeds maximum size of {MAX_CSV_SIZE_BYTES // (1024*1024)}MB.")
+
         try:
             content = file.read().decode('utf-8')
         except UnicodeDecodeError:
@@ -70,6 +82,7 @@ def process_csv_upload(file):
         if missing_cols:
             raise ValueError(f"CSV missing required columns: {', '.join(missing_cols)}. Found: {', '.join(headers)}")
 
+        # ── Session safety ──
         try:
             db.session.rollback()
         except Exception:
@@ -94,16 +107,19 @@ def process_csv_upload(file):
 
                 if not date_str or not item_name or qty_raw == '':
                     skipped_invalid += 1
+                    parsing_errors.append(f"Row {row_num}: Missing required field (date, item_name, or quantity_sold).")
                     continue
                 try:
                     sold_qty = float(qty_raw)
                 except ValueError:
                     skipped_invalid += 1
+                    parsing_errors.append(f"Row {row_num}: Invalid quantity_sold '{qty_raw}'.")
                     continue
                 try:
                     log_date = datetime.strptime(date_str, '%Y-%m-%d').date()
                 except ValueError:
                     skipped_invalid += 1
+                    parsing_errors.append(f"Row {row_num}: Invalid date format '{date_str}'. Expected YYYY-MM-DD.")
                     continue
 
                 day_of_week = log_date.strftime('%A')
@@ -134,8 +150,9 @@ def process_csv_upload(file):
                 to_insert.append(log)
                 alert_triggers.append((log, prepared_qty, sold_qty, waste_qty))
                 rows_processed += 1
-            except Exception:
+            except Exception as row_err:
                 skipped_invalid += 1
+                parsing_errors.append(f"Row {row_num}: Unexpected error — {str(row_err)[:80]}")
                 continue
 
         if to_insert:
@@ -146,12 +163,21 @@ def process_csv_upload(file):
                 except Exception as e:
                     logger.error("CSV alert trigger error (non-blocking): %s", e)
 
+        duration_ms = round((time.time() - start_time) * 1000)
         result = {
-            "success": True, "rows_inserted": len(to_insert),
-            "skipped_duplicates": skipped_duplicates, "skipped_invalid": skipped_invalid,
+            "success": True,
+            "rows_inserted": len(to_insert),
+            "skipped_duplicates": skipped_duplicates,
+            "skipped_invalid": skipped_invalid,
+            "duration_ms": duration_ms,
         }
         if parsing_errors:
             result["parsing_errors"] = parsing_errors[:20]
+
+        logger.info(
+            "CSV upload complete: %d inserted, %d dup, %d invalid, %dms",
+            len(to_insert), skipped_duplicates, skipped_invalid, duration_ms
+        )
         return result
 
     except ValueError:
