@@ -41,13 +41,16 @@ def upload_csv():
         result = process_csv_upload(file)
         
         message = f"{result['rows_inserted']} records imported successfully."
-        if result['skipped_duplicates'] > 0:
+        if result.get('skipped_duplicates', 0) > 0:
             message += f" ({result['skipped_duplicates']} duplicates skipped)."
+        if result.get('skipped_invalid', 0) > 0:
+            message += f" ({result['skipped_invalid']} invalid rows skipped)."
             
         return jsonify({
             'success': True, 
             'rows_inserted': result['rows_inserted'],
-            'skipped_duplicates': result['skipped_duplicates'],
+            'skipped_duplicates': result.get('skipped_duplicates', 0),
+            'skipped_invalid': result.get('skipped_invalid', 0),
             'message': message,
             'data': None
         }), 200
